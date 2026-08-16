@@ -169,6 +169,32 @@ Input::document(File::make('local/path.pdf'));        // the default disk
 Input::text('caption')->withImage($a, $b);            // one input, several parts
 ```
 
+For files, the shorthand skips the wrapper. The extension decides whether it lands in the document field or the image field, and the two tables don't overlap:
+
+```php
+Input::fromDisk('s3', 'invoices/march.pdf');   // → document
+Input::fromDisk('s3', 'cover.jpg');            // → image
+Input::fromDisk('s3', 'march.pdf', 'doc-1');   // …with an id
+
+// A file is an input on its own, so the terminals take one directly.
+SIE::model('docling')->extract(File::disk('s3', 'invoices/march.pdf'));
+SIE::model('docling')->extract($request->file('upload'));
+
+$paths = ['a.pdf', 'b.pdf', 'c.pdf'];
+SIE::model('docling')->extract(array_map(fn ($p) => Input::fromDisk('s3', $p), $paths));
+```
+
+An extension in neither table is refused rather than guessed — say which you meant:
+
+```php
+Input::fromDisk('s3', 'archive.bin');
+// InvalidArgumentException: Cannot tell whether [archive.bin] is a document or
+// an image. Use Input::documentFromDisk() or Input::imageFromDisk() to say which.
+
+Input::documentFromDisk('s3', 'archive.bin');
+Input::imageFromDisk('scans', 'page-1');
+```
+
 Files are read lazily — nothing touches the disk until the request is sent, so a half-built chain can be handed straight to a queued job:
 
 ```php

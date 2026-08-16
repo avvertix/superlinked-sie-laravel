@@ -89,3 +89,79 @@ it('reports its resolved size in bytes so a request can be capped before sending
 it('throws when the images key is not a list', function () {
     Input::from(['images' => 'not-a-list']);
 })->throws(InvalidArgumentException::class, 'The "images" key must be a list of images.');
+
+it('builds a document input straight from a disk', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('invoices/march.pdf', 'PDF-BYTES');
+
+    $wire = Input::fromDisk('documents', 'invoices/march.pdf')->toArray();
+
+    expect($wire['document'])->toBe(['data' => 'PDF-BYTES', 'format' => 'pdf']);
+    expect($wire)->not->toHaveKey('images');
+});
+
+it('builds an image input straight from a disk', function () {
+    Storage::fake('images');
+    Storage::disk('images')->put('cover.jpg', 'JPG-BYTES');
+
+    $wire = Input::fromDisk('images', 'cover.jpg')->toArray();
+
+    expect($wire['images'])->toBe([['data' => 'JPG-BYTES', 'format' => 'jpeg']]);
+    expect($wire)->not->toHaveKey('document');
+});
+
+it('carries an id given to a disk-backed input', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('a.pdf', 'PDF');
+
+    expect(Input::fromDisk('documents', 'a.pdf', 'doc-1')->id)->toBe('doc-1');
+});
+
+it('refuses to guess whether an unknown extension is a document or an image', function () {
+    Input::fromDisk('documents', 'archive.bin');
+})->throws(
+    InvalidArgumentException::class,
+    'Cannot tell whether [archive.bin] is a document or an image',
+);
+
+it('takes an explicit kind when the extension cannot be inferred', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('archive.bin', 'RAW');
+
+    $wire = Input::documentFromDisk('documents', 'archive.bin')->toArray();
+
+    expect($wire['document'])->toBe(['data' => 'RAW', 'format' => null]);
+});
+
+it('builds an image input from a disk explicitly', function () {
+    Storage::fake('images');
+    Storage::disk('images')->put('scan', 'RAW');
+
+    expect(Input::imageFromDisk('images', 'scan')->toArray()['images'])
+        ->toBe([['data' => 'RAW', 'format' => null]]);
+});
+
+it('accepts a File anywhere an input is expected', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('a.pdf', 'PDF');
+
+    $inputs = Input::listFrom(File::disk('documents', 'a.pdf'));
+
+    expect($inputs)->toHaveCount(1);
+    expect($inputs[0]->toArray()['document'])->toBe(['data' => 'PDF', 'format' => 'pdf']);
+});
+
+it('accepts a batch of Files', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('a.pdf', 'A');
+    Storage::disk('documents')->put('b.png', 'B');
+
+    $inputs = Input::listFrom([
+        File::disk('documents', 'a.pdf'),
+        File::disk('documents', 'b.png'),
+    ]);
+
+    expect($inputs)->toHaveCount(2);
+    expect($inputs[0]->toArray())->toHaveKey('document');
+    expect($inputs[1]->toArray())->toHaveKey('images');
+});

@@ -208,3 +208,81 @@ it('leaves other request errors as they are', function () {
 
     SIE::model('nope')->encode('Hello world');
 })->throws(RequestException::class, 'not found');
+
+it('accepts a file directly as an input, without wrapping it', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('invoices/march.pdf', 'PDF-BYTES');
+
+    $mock = MockClient::global([
+        MockResponse::make(['model' => 'docling', 'items' => [['data' => ['pages' => 1]]]], 200),
+    ]);
+
+    SIE::model('docling')->extract(File::disk('documents', 'invoices/march.pdf'));
+
+    $mock->assertSent(function (ExtractRequest $request): bool {
+        $item = $request->body()->all()['items'][0];
+
+        expect($item['document'])->toBe(['data' => base64_encode('PDF-BYTES'), 'format' => 'pdf']);
+        expect($item)->not->toHaveKey('images');
+
+        return true;
+    });
+});
+
+it('routes a file with an image extension into the images field', function () {
+    Storage::fake('images');
+    Storage::disk('images')->put('cover.jpg', 'JPG');
+
+    $mock = MockClient::global([encodeResponse()]);
+
+    SIE::model('openai/clip-vit-base-patch32')->encode(File::disk('images', 'cover.jpg'));
+
+    $mock->assertSent(function (EncodeRequest $request): bool {
+        expect($request->body()->all()['items'][0]['images'])
+            ->toBe([['data' => base64_encode('JPG'), 'format' => 'jpeg']]);
+
+        return true;
+    });
+});
+
+it('accepts a batch of files built with the disk shorthand', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('a.pdf', 'A');
+    Storage::disk('documents')->put('b.pdf', 'B');
+
+    $mock = MockClient::global([
+        MockResponse::make(['model' => 'docling', 'items' => [['data' => []], ['data' => []]]], 200),
+    ]);
+
+    $results = SIE::model('docling')->extract(
+        array_map(fn (string $p) => Input::fromDisk('documents', $p), ['a.pdf', 'b.pdf']),
+    );
+
+    expect($results)->toHaveCount(2);
+
+    $mock->assertSent(function (ExtractRequest $request): bool {
+        expect($request->body()->all()['items'])->toHaveCount(2);
+
+        return true;
+    });
+});
+
+it('accepts an SplFileInfo directly, the shape an uploaded file arrives in', function () {
+    $path = sys_get_temp_dir().'/sie-upload-test.pdf';
+    file_put_contents($path, 'PDF-BYTES');
+
+    $mock = MockClient::global([
+        MockResponse::make(['model' => 'docling', 'items' => [['data' => []]]], 200),
+    ]);
+
+    SIE::model('docling')->extract(new SplFileInfo($path));
+
+    $mock->assertSent(function (ExtractRequest $request): bool {
+        expect($request->body()->all()['items'][0]['document'])
+            ->toBe(['data' => base64_encode('PDF-BYTES'), 'format' => 'pdf']);
+
+        return true;
+    });
+
+    unlink($path);
+});

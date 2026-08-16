@@ -11,7 +11,6 @@ use Sie\Client\Data\ModelInfo;
  */
 
 it('reads cluster capacity from /health', function () {
-    // TODO: only when connecting to a SIE gateway
     $capacity = sieClient()->getCapacity();
 
     // Zero workers is a legitimate answer, not a failure: this cluster is
@@ -20,7 +19,7 @@ it('reads cluster capacity from /health', function () {
     expect($capacity)->toBeInstanceOf(CapacityInfo::class)
         ->and($capacity->workerCount)->toBeInt()
         ->and($capacity->workerCount)->toBeGreaterThanOrEqual(0);
-});
+})->skip('Require a SIE gateway');
 
 it('fetches a single model in the native shape', function () {
     // /v1/models/{model} returns the native envelope: name, dims, inputs,
@@ -49,7 +48,6 @@ it('lists models', function () {
 });
 
 it('attaches the gateway request id to a real encode result', function () {
-    // TODO: only when connecting to a SIE gateway
     requiresBillableCalls();
 
     // Proves case-insensitive header lookup against the real wire: the gateway
@@ -59,4 +57,4 @@ it('attaches the gateway request id to a real encode result', function () {
     expect($result->request)->not->toBeNull()
         ->and($result->request->id)->toBeString()
         ->and($result->request->id)->not->toBeEmpty();
-})->group('billable');
+})->group('billable')->skip('Require a SIE gateway');

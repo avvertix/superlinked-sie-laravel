@@ -32,5 +32,10 @@ abstract class TestCase extends Orchestra
         ]);
 
         $app['config']->set('superlinked-sie-laravel.catalog.ttl', 0);
+
+        // The model catalog is cached, and a file-backed store would keep that
+        // entry between test runs — making any test that counts catalog
+        // requests pass once and then fail for the rest of the ttl.
+        $app['config']->set('cache.default', 'array');
     }
 }

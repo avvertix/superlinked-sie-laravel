@@ -69,7 +69,7 @@ Run `SIE::models()` to see what your cluster actually serves, including each mod
 
 ## Usage
 
-Every chain starts with a model and ends with the call that does the work. Options in between apply to whichever capability you finish with; passing one that does not belong raises an exception rather than being silently ignored.
+A fluent API to bring you from a model to **encode**, **score**, **extract**, **generate**. Using the Fluent API you can chain options.
 
 ### Encode
 
@@ -128,7 +128,7 @@ $results = SIE::model('urchade/gliner_multi-v2.1')
 $results->sole()->entities; // [Entity{text: 'Ada Lovelace', label: 'person', …}, …]
 ```
 
-Document parsing is an extraction too, not an encode — `docling` declares `inputs: [image, document]` and `outputs: [json]`:
+Document parsing is an extraction too:
 
 ```php
 use Sie\File;
@@ -200,6 +200,18 @@ $results->hasFailures();     // bool
 $results->failed();          // the ones that errored
 $results->succeeded();       // the ones that did not
 $results->throwIfAnyFailed(); // opt into strictness
+```
+
+A score response also carries per-request information that belongs to the whole call rather than to any one item. It sits on the collection, and survives filtering and sorting:
+
+```php
+$ranked = SIE::model('BAAI/bge-m3')->score($query, $documents);
+
+$ranked->model;              // the model that actually served it, after alias/profile resolution
+$ranked->usage->inputTokens; // 34 — the billable number
+$ranked->queryId;            // server-assigned, when the cluster assigns one
+
+$ranked->filter(fn ($entry) => $entry->score > 0.6)->usage->inputTokens; // still 34
 ```
 
 ## Profiles, pools and GPUs

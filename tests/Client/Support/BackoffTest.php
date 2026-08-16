@@ -15,6 +15,27 @@ it('jitters downward only, within [delay * 0.75, delay]', function () {
     expect($delay)->toBe(8.75); // (7.5 + 10) / 2
 });
 
+it('keeps the default sampler inside the same bounds', function () {
+    // The injectable sampler is what every other test uses, which left the
+    // real one uncovered. Draw enough times to catch a bounds error.
+    for ($i = 0; $i < 200; $i++) {
+        $delay = Backoff::applyJitter(10.0);
+
+        expect($delay)->toBeGreaterThanOrEqual(7.5);
+        expect($delay)->toBeLessThanOrEqual(10.0);
+    }
+});
+
+it('actually varies the default sampler rather than returning a constant', function () {
+    $draws = [];
+
+    for ($i = 0; $i < 50; $i++) {
+        $draws[] = Backoff::applyJitter(10.0);
+    }
+
+    expect(count(array_unique($draws, SORT_REGULAR)))->toBeGreaterThan(1);
+});
+
 it('honours a first-attempt Retry-After verbatim, capped at max delay', function () {
     expect(Backoff::computeOomBackoff(retryAfter: 10.0, attempt: 0, maxDelay: 30.0))->toBe(10.0);
     expect(Backoff::computeOomBackoff(retryAfter: 100.0, attempt: 0, maxDelay: 30.0))->toBe(30.0);

@@ -10,7 +10,7 @@ namespace Sie\Client\Support;
  * Direct port of `_shared.py`'s `apply_jitter` / `compute_oom_backoff` /
  * `compute_retry_delay`. `$uniform` is an injectable `(float $low, float
  * $high): float` sampler so tests can make jitter deterministic; it defaults
- * to a non-cryptographic `mt_rand`-based uniform draw.
+ * to a `random_int`-based uniform draw.
  */
 final class Backoff
 {
@@ -73,8 +73,16 @@ final class Backoff
         return self::applyJitter(min(ErrorCodes::MODEL_LOADING_DEFAULT_DELAY_S, $timeout - $elapsed), $uniform);
     }
 
+    /**
+     * A uniform draw over `[$low, $high]`.
+     *
+     * Uses `random_int` rather than `mt_rand`: jitter has no cryptographic
+     * requirement, but a CSPRNG costs nothing at the handful of draws a retry
+     * loop makes, and it keeps the security preset honest instead of carrying
+     * an exemption for a function nobody needs here.
+     */
     private static function defaultUniform(): callable
     {
-        return static fn (float $low, float $high): float => $low + (mt_rand() / mt_getrandmax()) * ($high - $low);
+        return static fn (float $low, float $high): float => $low + (random_int(0, PHP_INT_MAX) / PHP_INT_MAX) * ($high - $low);
     }
 }

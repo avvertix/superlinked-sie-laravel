@@ -8,4 +8,4 @@ Only the latest major version receives security fixes.
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within Superlinked Sie Laravel, please send an email to Alessio Vertemati at alessio.vertemati@gmail.com. All security vulnerabilities will be promptly addressed.
+If you discover a security vulnerability within Superlinked Sie Laravel, please send an email to Alessio Vertemati at alessio@vertemati.space. All security vulnerabilities will be promptly addressed.

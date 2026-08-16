@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sie\Results;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use Sie\Client\Data\ScoreEntry;
 use Sie\Client\Data\ScoreResult;
@@ -13,45 +14,43 @@ use Sie\Client\Data\ScoreUsage;
  * The scored inputs of a rerank, already sorted by relevance (descending) by
  * the cluster. Preserves that order.
  *
- * The envelope metadata — {@see model()}, {@see usage()}, {@see queryId()} —
- * belongs to the request, not to the items, so it lives on the instance
- * returned by `score()`. `Collection` derives new instances with `new static`,
- * which cannot carry it: `$results->filter(...)->model()` is null. Read the
- * metadata from the collection you were handed, before deriving from it.
+ * A score response has two parts: the per-item `scores`, which are this
+ * collection's items, and the per-request envelope — which model actually
+ * served the request, what it cost, and the query id — which belongs to the
+ * whole call and so lives on the collection itself.
+ *
+ * The envelope survives `filter()`, `sortBy()`, `take()` and friends because
+ * {@see newInstance()} carries it onto every derived collection. Without that
+ * override, `$results->filter(...)->usage` would silently be null, which is
+ * exactly the sort of ambiguous nothing this package refuses to return.
+ *
+ * Note that {@see EncodeResults} needs no equivalent: the encode envelope's
+ * model and timing are already copied onto every `EncodeResult` by the client,
+ * so there is nothing left over to carry.
  *
  * @extends Collection<int, ScoreEntry>
  */
 final class ScoreResults extends Collection
 {
-    private ?string $model = null;
-
-    private ?ScoreUsage $usage = null;
-
-    private ?string $queryId = null;
+    /**
+     * @param  Arrayable<int, ScoreEntry>|iterable<int, ScoreEntry>|null  $items
+     * @param  ?string  $model  The model that actually served the request, which can differ from the one
+     *                          asked for when an alias or profile was resolved.
+     * @param  ?ScoreUsage  $usage  Authoritative usage for the call — the billable numbers.
+     * @param  ?string  $queryId  Server-assigned id for the query, when the cluster assigns one.
+     */
+    public function __construct(
+        $items = [],
+        public readonly ?string $model = null,
+        public readonly ?ScoreUsage $usage = null,
+        public readonly ?string $queryId = null,
+    ) {
+        parent::__construct($items);
+    }
 
     public static function fromResult(ScoreResult $result): self
     {
-        $results = new self($result->scores);
-        $results->model = $result->model;
-        $results->usage = $result->usage;
-        $results->queryId = $result->queryId;
-
-        return $results;
-    }
-
-    public function model(): ?string
-    {
-        return $this->model;
-    }
-
-    public function usage(): ?ScoreUsage
-    {
-        return $this->usage;
-    }
-
-    public function queryId(): ?string
-    {
-        return $this->queryId;
+        return new self($result->scores, $result->model, $result->usage, $result->queryId);
     }
 
     /**
@@ -65,5 +64,16 @@ final class ScoreResults extends Collection
             static fn (ScoreEntry $entry): string => $entry->itemId,
             array_slice(array_values($this->all()), 0, $limit),
         );
+    }
+
+    /**
+     * Every collection `Collection` derives from this one is built here, so
+     * this is the single place the envelope has to be carried forward.
+     *
+     * @param  Arrayable<int, ScoreEntry>|iterable<int, ScoreEntry>|null  $items
+     */
+    protected function newInstance($items = []): static
+    {
+        return new self($items, $this->model, $this->usage, $this->queryId);
     }
 }

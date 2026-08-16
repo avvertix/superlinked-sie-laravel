@@ -7,6 +7,7 @@ use Sie\Client\Data\EncodeResult;
 use Sie\Client\Data\ExtractItemError;
 use Sie\Client\Data\ExtractResult;
 use Sie\Client\Data\ScoreEntry;
+use Sie\Client\Data\ScoreResult;
 use Sie\Exceptions\ExtractionFailedException;
 use Sie\Results\EncodeResults;
 use Sie\Results\ExtractResults;
@@ -80,4 +81,54 @@ it('does not throw when every extraction succeeded', function () {
     $results = new ExtractResults([new ExtractResult(id: 'ok')]);
 
     expect($results->throwIfAnyFailed())->toBe($results);
+});
+
+it('carries the score envelope onto every derived collection', function () {
+    $results = ScoreResults::fromResult(ScoreResult::fromArray([
+        'model' => 'BAAI/bge-m3',
+        'query_id' => 'q-1',
+        'scores' => [
+            ['item_id' => 'duck', 'score' => 0.65, 'rank' => 0],
+            ['item_id' => 'turbine', 'score' => 0.52, 'rank' => 1],
+        ],
+        'usage' => ['input_tokens' => 34],
+    ]));
+
+    expect($results->model)->toBe('BAAI/bge-m3');
+    expect($results->usage->inputTokens)->toBe(34);
+    expect($results->queryId)->toBe('q-1');
+
+    // Every derivation path goes through newInstance(), so the envelope survives.
+    foreach ([
+        'filter' => $results->filter(fn (ScoreEntry $e): bool => $e->score > 0.6),
+        'sortBy' => $results->sortByDesc('score'),
+        'take' => $results->take(1),
+        'values' => $results->values(),
+        'reject' => $results->reject(fn (): bool => false),
+        'slice' => $results->slice(0, 1),
+    ] as $method => $derived) {
+        expect($derived)->toBeInstanceOf(ScoreResults::class);
+        expect($derived->model)->toBe('BAAI/bge-m3', "envelope lost by {$method}()");
+        expect($derived->usage->inputTokens)->toBe(34, "usage lost by {$method}()");
+        expect($derived->queryId)->toBe('q-1', "query id lost by {$method}()");
+    }
+});
+
+it('reports a query id the cluster did not assign as null', function () {
+    $results = ScoreResults::fromResult(ScoreResult::fromArray([
+        'model' => 'BAAI/bge-m3',
+        'query_id' => null,
+        'scores' => [['item_id' => 'duck', 'score' => 0.65, 'rank' => 0]],
+        'usage' => ['input_tokens' => 34],
+    ]));
+
+    expect($results->queryId)->toBeNull();
+    expect($results->filter(fn (): bool => true)->queryId)->toBeNull();
+});
+
+it('starts a hand-built score collection with an empty envelope', function () {
+    $results = new ScoreResults([new ScoreEntry('a', 1.0, 0)]);
+
+    expect($results->model)->toBeNull();
+    expect($results->usage)->toBeNull();
 });

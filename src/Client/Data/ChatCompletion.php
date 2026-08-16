@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sie\Client\Data;
+
+/** Non-streaming response from `SieClient::chatCompletions()`. */
+final class ChatCompletion
+{
+    /**
+     * @param  list<ChatChoice>  $choices
+     */
+    public function __construct(
+        public readonly string $id,
+        public readonly string $object,
+        public readonly int $created,
+        public readonly string $model,
+        public readonly array $choices,
+        public readonly ?string $systemFingerprint = null,
+        public readonly ?GenerationUsage $usage = null,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $usage = $data['usage'] ?? null;
+
+        return new self(
+            id: (string) ($data['id'] ?? ''),
+            object: (string) ($data['object'] ?? ''),
+            created: (int) ($data['created'] ?? 0),
+            model: (string) ($data['model'] ?? ''),
+            choices: array_map(ChatChoice::fromArray(...), $data['choices'] ?? []),
+            systemFingerprint: $data['system_fingerprint'] ?? null,
+            usage: is_array($usage) ? GenerationUsage::fromArray($usage) : null,
+        );
+    }
+}

@@ -10,3 +10,5 @@ composer.lock
 .idea
 .vscode
 .env
+
+.claude/settings.local.json

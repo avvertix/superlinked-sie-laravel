@@ -24,6 +24,7 @@ use Sie\Exceptions\UnsupportedCapabilityException;
 use Sie\Results\EncodeResults;
 use Sie\Results\ExtractResults;
 use Sie\Results\ScoreResults;
+use SplFileInfo;
 
 /**
  * A request you are still building.
@@ -256,9 +257,9 @@ final class PendingRequest
     /**
      * Turn inputs into vector **Outputs**.
      *
-     * @param  Input|string|iterable<mixed>  $inputs
+     * @param  Input|File|SplFileInfo|string|iterable<mixed>  $inputs
      */
-    public function encode(Input|string|iterable $inputs): EncodeResults
+    public function encode(Input|File|SplFileInfo|string|iterable $inputs): EncodeResults
     {
         $this->assertOptionsApplyTo('encode');
         $model = $this->resolvedModel('encode');
@@ -285,9 +286,9 @@ final class PendingRequest
     /**
      * Rank inputs by relevance to a query.
      *
-     * @param  Input|string|iterable<mixed>  $inputs
+     * @param  Input|File|SplFileInfo|string|iterable<mixed>  $inputs
      */
-    public function score(Input|string $query, Input|string|iterable $inputs): ScoreResults
+    public function score(Input|File|SplFileInfo|string $query, Input|File|SplFileInfo|string|iterable $inputs): ScoreResults
     {
         $this->assertOptionsApplyTo('score');
         $model = $this->resolvedModel('score');
@@ -316,9 +317,9 @@ final class PendingRequest
      * collection carrying its error (see ADR 0004). Call
      * `throwIfAnyFailed()` on the result to opt into strictness.
      *
-     * @param  Input|string|iterable<mixed>  $inputs
+     * @param  Input|File|SplFileInfo|string|iterable<mixed>  $inputs
      */
-    public function extract(Input|string|iterable $inputs): ExtractResults
+    public function extract(Input|File|SplFileInfo|string|iterable $inputs): ExtractResults
     {
         $this->assertOptionsApplyTo('extract');
         $model = $this->resolvedModel('extract');
@@ -505,10 +506,10 @@ final class PendingRequest
      * Resolve inputs to their wire shape, reading files and enforcing the
      * configured byte ceiling before anything is sent.
      *
-     * @param  Input|string|iterable<mixed>  $inputs
+     * @param  Input|File|SplFileInfo|string|iterable<mixed>  $inputs
      * @return list<array<string, mixed>>
      */
-    private function wireItems(Input|string|iterable $inputs, int $additionalBytes = 0): array
+    private function wireItems(Input|File|SplFileInfo|string|iterable $inputs, int $additionalBytes = 0): array
     {
         $list = Input::listFrom($inputs);
 

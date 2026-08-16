@@ -47,17 +47,92 @@ final class Input
     }
 
     /**
+     * An input read from a filesystem disk, with its kind taken from the
+     * file's extension.
+     *
+     * Document and image are different wire fields with different format
+     * tables, so this has to decide which one a path is. The two extension
+     * tables do not overlap, which makes the decision safe for anything they
+     * cover — and for anything they do not, this refuses rather than guessing.
+     * Reach for {@see documentFromDisk()} or {@see imageFromDisk()} then.
+     */
+    public static function fromDisk(string $disk, string $path, ?string $id = null): self
+    {
+        return match (self::kindOf($path)) {
+            'image' => self::imageFromDisk($disk, $path, $id),
+            'document' => self::documentFromDisk($disk, $path, $id),
+            default => throw new InvalidArgumentException(
+                "Cannot tell whether [{$path}] is a document or an image. "
+                .'Use Input::documentFromDisk() or Input::imageFromDisk() to say which.',
+            ),
+        };
+    }
+
+    public static function documentFromDisk(string $disk, string $path, ?string $id = null): self
+    {
+        return new self(document: File::disk($disk, $path), id: $id);
+    }
+
+    public static function imageFromDisk(string $disk, string $path, ?string $id = null): self
+    {
+        return new self(images: [File::disk($disk, $path)], id: $id);
+    }
+
+    /**
+     * An input wrapping a file we already hold, kind taken from its name.
+     *
+     * An uploaded file's pathname is an extensionless temp path, so its
+     * original client name is the only place the real extension survives.
+     */
+    private static function fromFile(File|SplFileInfo $file): self
+    {
+        $name = match (true) {
+            $file instanceof File => $file->path,
+            method_exists($file, 'getClientOriginalName') => (string) $file->getClientOriginalName(),
+            default => $file->getPathname(),
+        };
+
+        return match (self::kindOf($name)) {
+            'image' => new self(images: [$file]),
+            'document' => new self(document: $file),
+            default => throw new InvalidArgumentException(
+                "Cannot tell whether [{$name}] is a document or an image. "
+                .'Use Input::document() or Input::image() to say which.',
+            ),
+        };
+    }
+
+    /**
+     * Which wire field a path belongs in, or null when the extension does not
+     * appear in either table.
+     */
+    private static function kindOf(string $path): ?string
+    {
+        return match (true) {
+            MediaInput::formatFor('image', $path) !== null => 'image',
+            MediaInput::formatFor('document', $path) !== null => 'document',
+            default => null,
+        };
+    }
+
+    /**
      * Normalise whatever a caller passed into an `Input`.
      *
-     * A bare string is text. An array is treated as an already-shaped wire
-     * item, which is how callers reach fields this class does not model yet.
+     * A bare string is text. A `File` or `SplFileInfo` is a document or an
+     * image, decided the same way {@see fromDisk()} decides. An array is
+     * treated as an already-shaped wire item, which is how callers reach
+     * fields this class does not model yet.
      *
      * @param  array<string, mixed>  $input
      */
-    public static function from(self|string|array $input): self
+    public static function from(self|File|SplFileInfo|string|array $input): self
     {
         if ($input instanceof self) {
             return $input;
+        }
+
+        if ($input instanceof File || $input instanceof SplFileInfo) {
+            return self::fromFile($input);
         }
 
         if (is_string($input)) {
@@ -81,12 +156,18 @@ final class Input
     /**
      * Normalise one input or a batch of them into a list of `Input`.
      *
-     * @param  self|string|iterable<mixed>  $inputs
+     * @param  self|File|SplFileInfo|string|iterable<mixed>  $inputs
      * @return list<self>
      */
-    public static function listFrom(self|string|iterable $inputs): array
+    public static function listFrom(self|File|SplFileInfo|string|iterable $inputs): array
     {
-        if ($inputs instanceof self || is_string($inputs)) {
+        if ($inputs instanceof self || $inputs instanceof File || is_string($inputs)) {
+            return [self::from($inputs)];
+        }
+
+        // SplFileInfo is not iterable, but checking it after the iterable
+        // branch would be too late for the ones that are (DirectoryIterator).
+        if ($inputs instanceof SplFileInfo) {
             return [self::from($inputs)];
         }
 

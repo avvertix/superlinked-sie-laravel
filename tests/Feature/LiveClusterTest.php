@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Storage;
 use Sie\Client\Exceptions\RequestException;
 use Sie\Exceptions\UnsupportedCapabilityException;
 use Sie\Facades\SIE;
-use Sie\File;
 use Sie\Input;
 use Sie\Tests\Client\Support\Env;
 
@@ -96,9 +95,7 @@ it('parses a document with docling, which is an extract model not an encode one'
     Storage::fake('documents');
     Storage::disk('documents')->put('note.md', "# Ada Lovelace\n\nBorn in London.\n");
 
-    $results = SIE::model('docling')->extract(
-        Input::document(File::disk('documents', 'note.md')),
-    );
+    $results = SIE::model('docling')->extract(Input::fromDisk('documents', 'note.md'));
 
     expect($results)->toHaveCount(1);
     expect($results->hasFailures())->toBeFalse();

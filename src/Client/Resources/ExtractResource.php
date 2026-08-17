@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sie\Client\Resources;
 
 use Sie\Client\Data\ExtractResult;
+use Sie\Client\Http\SieResponse;
 use Sie\Client\Requests\Extract\ExtractRequest;
 use Sie\Client\Support\RequestMetadataParser;
 use Sie\Client\Support\RetryingRequestSender;
@@ -46,7 +47,7 @@ final class ExtractResource
         $response = $this->sender->send($requestFactory, $policy, $model, $gpu, $waitForCapacity, $provisionTimeoutS);
 
         $requestMetadata = RequestMetadataParser::parse($response);
-        $data = $response->json();
+        $data = SieResponse::decode($response);
 
         return array_map(
             static fn (array $item): ExtractResult => ExtractResult::fromArray($item, $requestMetadata),

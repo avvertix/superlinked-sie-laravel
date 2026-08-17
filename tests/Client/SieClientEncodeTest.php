@@ -11,6 +11,7 @@ use Sie\Client\Exceptions\RequestException;
 use Sie\Client\Exceptions\ServerException;
 use Sie\Client\Requests\Encode\EncodeRequest;
 use Sie\Client\SieClient;
+use Sie\Client\Support\WireFormat;
 use Sie\Tests\Client\Fixtures\FakeClock;
 use Sie\Tests\Client\Fixtures\RecordingSleeper;
 
@@ -93,7 +94,7 @@ it('sends the model/gpu/pool/params/options exactly as built, over JSON', functi
         expect($request->resolveEndpoint())->toBe('/v1/encode/bge-m3');
         // Content-Type/Accept come from the connector's defaults, only visible on the merged PendingRequest.
         $mergedHeaders = $response->getPendingRequest()->headers();
-        expect($mergedHeaders->get('Content-Type'))->toBe('application/json');
+        expect($mergedHeaders->get('Content-Type'))->toBe('application/msgpack');
         expect($mergedHeaders->get('X-SIE-MACHINE-PROFILE'))->toBe('l4');
         expect($mergedHeaders->get('X-SIE-Pool'))->toBe('eval-bench');
 
@@ -107,17 +108,31 @@ it('sends the model/gpu/pool/params/options exactly as built, over JSON', functi
     });
 });
 
-it('converts image items to the base64 wire shape before sending', function () {
+it('sends image items as a native msgpack bin', function () {
     $mock = MockClient::global([
         MockResponse::make(['model' => 'clip', 'items' => [['dense' => ['values' => [1.0]]]]], 200),
     ]);
 
-    $client = new SieClient('https://sie.test');
-    $client->encode('clip', ['images' => ["\x01\x02"]]);
+    (new SieClient('https://sie.test'))->encode('clip', ['images' => ["\x01\x02"]]);
 
     $mock->assertSent(function (EncodeRequest $request): bool {
-        $body = $request->body()->all();
-        expect($body['items'][0]['images'])->toBe([['data' => base64_encode("\x01\x02"), 'format' => null]]);
+        // 0xc4 0x02 is bin8 of length two. A base64 string here is a 400.
+        expect(bin2hex((string) $request->body()))->toContain('c4020102');
+
+        return true;
+    });
+});
+
+it('sends image items as base64 when the connection speaks JSON', function () {
+    $mock = MockClient::global([
+        MockResponse::make(['model' => 'clip', 'items' => [['dense' => ['values' => [1.0]]]]], 200),
+    ]);
+
+    (new SieClient('https://sie.test', format: WireFormat::Json))->encode('clip', ['images' => ["\x01\x02"]]);
+
+    $mock->assertSent(function (EncodeRequest $request, Response $response): bool {
+        expect($response->getPendingRequest()->headers()->get('Content-Type'))->toBe('application/json');
+        expect((string) $request->body())->toContain('"data":"'.base64_encode("\x01\x02").'"');
 
         return true;
     });

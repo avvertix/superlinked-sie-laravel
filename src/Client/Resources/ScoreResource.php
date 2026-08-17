@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sie\Client\Resources;
 
 use Sie\Client\Data\ScoreResult;
+use Sie\Client\Http\SieResponse;
 use Sie\Client\Requests\Score\ScoreRequest;
 use Sie\Client\Support\RequestMetadataParser;
 use Sie\Client\Support\RetryingRequestSender;
@@ -43,6 +44,6 @@ final class ScoreResource
 
         $response = $this->sender->send($requestFactory, $policy, $model, $gpu, $waitForCapacity, $provisionTimeoutS);
 
-        return ScoreResult::fromArray($response->json(), RequestMetadataParser::parse($response));
+        return ScoreResult::fromArray(SieResponse::decode($response), RequestMetadataParser::parse($response));
     }
 }

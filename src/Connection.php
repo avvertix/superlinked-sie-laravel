@@ -13,6 +13,7 @@ use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\CapacityInfo;
 use Sie\Client\Data\ModelInfo;
 use Sie\Client\SieClient;
+use Sie\Client\Support\WireFormat;
 
 /**
  * One configured SIE endpoint — a URL plus its credentials.
@@ -40,6 +41,7 @@ final class Connection
             timeoutS: (float) ($this->config['timeout'] ?? 900),
             apiKey: is_string($this->config['key'] ?? null) ? $this->config['key'] : null,
             gpu: $this->defaultRouting(),
+            format: $this->format(),
         );
     }
 
@@ -59,6 +61,17 @@ final class Connection
     public function model(string $model): PendingRequest
     {
         return new PendingRequest($this->name, $model);
+    }
+
+    /**
+     * The wire format this connection speaks, msgpack unless configured
+     * otherwise.
+     */
+    public function format(): WireFormat
+    {
+        $format = $this->config['format'] ?? null;
+
+        return WireFormat::fromName(is_string($format) ? $format : null);
     }
 
     /**

@@ -7,13 +7,13 @@ namespace Sie\Client\Requests\Extract;
 use Saloon\Contracts\Body\HasBody;
 use Saloon\Enums\Method;
 use Saloon\Http\Request;
-use Saloon\Traits\Body\HasJsonBody;
+use Sie\Client\Body\HasSieBody;
 use Sie\Client\Support\ErrorCodes;
 
 /** `POST /v1/extract/{*model}` (Axum catch-all, model id sent unencoded). */
 final class ExtractRequest extends Request implements HasBody
 {
-    use HasJsonBody;
+    use HasSieBody;
 
     protected Method $method = Method::POST;
 

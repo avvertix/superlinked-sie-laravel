@@ -8,9 +8,11 @@ use Composer\InstalledVersions;
 use Saloon\Contracts\Authenticator;
 use Saloon\Http\Auth\TokenAuthenticator;
 use Saloon\Http\Connector;
+use Sie\Client\Http\SieResponse;
 use Sie\Client\SieClient;
 use Sie\Client\Support\ErrorCodes;
 use Sie\Client\Support\RetryingRequestSender;
+use Sie\Client\Support\WireFormat;
 use Throwable;
 
 /**
@@ -22,11 +24,30 @@ use Throwable;
  */
 final class SieConnector extends Connector
 {
+    /**
+     * Every response is decoded by {@see SieResponse}, which negotiates the
+     * format from the `Content-Type` rather than assuming the one we asked for.
+     */
+    protected ?string $response = SieResponse::class;
+
     public function __construct(
         private readonly string $baseUrl,
         private readonly float $timeoutS = 30.0,
         private readonly ?string $apiKey = null,
+        private readonly WireFormat $format = WireFormat::Msgpack,
     ) {}
+
+    /**
+     * The wire format this connection speaks.
+     *
+     * Only the inference POSTs negotiate — `/v1/models`, health and the pool
+     * endpoints answer JSON whatever is asked of them, and generate has no
+     * msgpack support at all on the server side.
+     */
+    public function format(): WireFormat
+    {
+        return $this->format;
+    }
 
     public function resolveBaseUrl(): string
     {

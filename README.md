@@ -56,7 +56,7 @@ The package uses SIE's own vocabulary, these are the terms you meet first:
 | **Input** | One thing handed to a model: text, images, or a document. |
 | **Pool** / **GPU type** | Where the work runs. A pool is a lease-held slice of capacity; a GPU type is a hardware profile. They are independent. |
 
-Run `SIE::models()` to see what your cluster actually serves, including each model's inputs, outputs, and dimensions.
+Run `SIE::models()`, or `php artisan sie:models`, to see what your cluster actually serves, including each model's inputs, outputs, and dimensions.
 
 Head to [`CONTEXT.md`](CONTEXT.md) for the full glossary.
 
@@ -298,6 +298,37 @@ SIE::connection('eu')->model('BAAI/bge-m3')->encode('…');
 SIE::connection('eu')->models();
 ```
 
+## Console
+
+The package adds a `sie:models` Artisan command to access the catalog of available models.
+
+```bash
+php artisan sie:models
+```
+
+A sample response can be:
+
+```
+ INFO  Models served by the [default] connection (msgpack).
+
++-----------------+-----------------+------------+------------------+--------+
+| Model           | Inputs          | Outputs    | Dimensions       | Loaded |
++-----------------+-----------------+------------+------------------+--------+
+| BAAI/bge-m3     | text            | dense, ... | dense: 1024, ... | yes    |
+| docling         | image, document | json       | -                | yes    |
++-----------------+-----------------+------------+------------------+--------+
+```
+
+A cluster can serve well over a hundred models, so pass a filter to find one:
+
+```bash
+php artisan sie:models bge                 # only names containing "bge"
+php artisan sie:models --loaded            # only what is loaded on a worker right now
+php artisan sie:models bge --loaded        # both
+php artisan sie:models --connection=eu     # read a named connection
+php artisan sie:models --fresh             # bypass the cached catalog
+```
+
 ## Pools
 
 Pools have a lifecycle rather than a per-request shape, so they sit on their own. There is no background lease renewal — renew on your own schedule for as long as you want a pool kept alive.
@@ -422,6 +453,3 @@ Please review [our security policy](.github/SECURITY.md) on how to report securi
 
 SIE for Laravel is open-sourced software licensed under the [MIT license](LICENSE.md).
 
-
-
-TODO: add GitHub Actions against CPU SIE Server with same models

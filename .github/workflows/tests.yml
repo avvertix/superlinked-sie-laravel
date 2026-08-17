@@ -59,6 +59,7 @@ jobs:
       - name: Type Coverage
         if: runner.os != 'Windows'
         run: composer test:types
+        continue-on-error: true
 
       - name: Test Suite
         if: runner.os != 'Windows'

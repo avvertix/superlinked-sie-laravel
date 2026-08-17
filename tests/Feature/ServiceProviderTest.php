@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Laravel\Ai\AiManager;
 use Sie\Ai\SieProvider;
@@ -21,6 +22,10 @@ it('merges the package config', function () {
 
 it('resolves the facade to the manager', function () {
     expect(SIE::getFacadeRoot())->toBeInstanceOf(SieManager::class);
+});
+
+it('registers the console commands', function () {
+    expect(array_keys(Artisan::all()))->toContain('sie:models');
 });
 
 it('publishes the config under both tags', function () {

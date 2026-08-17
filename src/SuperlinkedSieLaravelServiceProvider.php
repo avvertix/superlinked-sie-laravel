@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Ai\AiManager;
 use Sie\Ai\SieProvider;
+use Sie\Console\Commands\ListModelsCommand;
 
 class SuperlinkedSieLaravelServiceProvider extends ServiceProvider
 {
@@ -32,6 +33,10 @@ class SuperlinkedSieLaravelServiceProvider extends ServiceProvider
         if (! $this->app->runningInConsole()) {
             return;
         }
+
+        $this->commands([
+            ListModelsCommand::class,
+        ]);
 
         $this->publishes([
             __DIR__.'/../config/superlinked-sie-laravel.php' => config_path('superlinked-sie-laravel.php'),

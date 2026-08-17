@@ -38,12 +38,14 @@ use Sie\Client\Support\SimpleRequestSender;
 use Sie\Client\Support\Sleeper;
 use Sie\Client\Support\SystemClock;
 use Sie\Client\Support\SystemSleeper;
+use Sie\Client\Support\WireFormat;
 
 /**
  * Client for the Search Inference Engine.
  *
- * Unlike the Python SDK, this client always negotiates `application/json`
- * (not msgpack) — see the project decision recorded alongside this port.
+ * Talks msgpack by default, which is what the server prefers: an inference POST
+ * with no `Accept` header answers in msgpack, and encode payloads are several
+ * times smaller for it. JSON remains selectable per connection — see ADR 0006.
  *
  * Example:
  *     $client = new SieClient('http://localhost:8080');
@@ -89,10 +91,11 @@ final class SieClient
         private readonly ?array $options = null,
         Clock $clock = new SystemClock,
         Sleeper $sleeper = new SystemSleeper,
+        WireFormat $format = WireFormat::Msgpack,
     ) {
         $this->clock = $clock;
         $this->sleeper = $sleeper;
-        $this->connector = new SieConnector($baseUrl, $timeoutS, $apiKey);
+        $this->connector = new SieConnector($baseUrl, $timeoutS, $apiKey, $format);
         $this->sender = new RetryingRequestSender($this->connector, $clock, $sleeper);
         $simpleSender = new SimpleRequestSender($this->connector);
         $this->encodeResource = new EncodeResource($this->sender);

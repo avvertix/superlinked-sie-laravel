@@ -26,6 +26,13 @@ return [
     | globally. Set them to route every request from this connection by
     | default; individual requests can still override with pool() and gpu().
     |
+    | "format" is the serialization used for encode, score and extract —
+    | "msgpack" (the default, and what the server prefers) or "json". msgpack
+    | sends files as raw bytes rather than base64 and returns vectors as raw
+    | buffers rather than decimal text, which makes encode responses several
+    | times smaller. Switch to json when you need a readable body on the wire
+    | or an intermediary mangles binary payloads.
+    |
     */
 
     'connections' => [
@@ -33,6 +40,7 @@ return [
             'url' => env('SIE_ENDPOINT'),
             'key' => env('SIE_KEY'),
             'timeout' => (int) env('SIE_TIMEOUT', 900),
+            'format' => env('SIE_FORMAT', 'msgpack'),
             'pool' => env('SIE_POOL'),
             'gpu' => env('SIE_GPU'),
         ],

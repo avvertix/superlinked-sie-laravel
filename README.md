@@ -211,7 +211,7 @@ class EmbedDocument implements ShouldQueue
 dispatch(new EmbedDocument(SIE::model('BAAI/bge-m3')->pool('eval-bench')));
 ```
 
-> **Memory:** SIE's wire format is JSON with base64-encoded file contents, so a batch is buffered in full before it is sent — roughly 1.37× the raw bytes. Requests over `max_request_bytes` (32 MB by default) throw `RequestTooLargeException` instead of risking the memory limit. Split large batches yourself; the package will not silently split them for you.
+> **Memory:** a batch is serialized in full before it is sent, so it is held in memory at once. Over msgpack that is the raw size of your files; over JSON add ~37% for base64. Requests over `max_request_bytes` (32 MB by default, counted on raw bytes) throw `RequestTooLargeException` instead of risking the memory limit. Split large batches yourself; the package will not silently split them for you.
 
 ## Results
 
@@ -268,6 +268,26 @@ Loading a model ahead of real traffic needs an input that model accepts — ther
 SIE::model('BAAI/bge-m3')->warmup('warm');
 SIE::model('docling')->warmup(Input::document(File::make('fixtures/stub.pdf')));
 ```
+
+## Wire format
+
+SIE speaks **msgpack** and **JSON**, and prefers msgpack — an inference request with no `Accept` header comes back as msgpack. This package defaults to it, and you should have no reason to notice: both formats decode to identical PHP values.
+
+It is worth having because it is a lot smaller. The same 1024-dimension encode, measured against a live cluster:
+
+| | msgpack | JSON |
+| --- | --- | --- |
+| Response size | **4,313 bytes** | 16,569 bytes |
+
+Vectors arrive as raw little-endian buffers rather than decimal text, and files are sent as raw bytes rather than base64. Switch a connection to JSON when you want a readable body on the wire, or when something between you and the cluster mangles binary payloads:
+
+```php
+'connections' => [
+    'default' => ['url' => env('SIE_ENDPOINT'), 'key' => env('SIE_KEY'), 'format' => 'json'],
+],
+```
+
+Only encode, score and extract negotiate. `generate` has no msgpack support server-side, `SIE::models()` and health always answer JSON, and streaming is JSON frames over SSE. Errors are JSON on every path, which the package handles by trusting the response's `Content-Type` rather than assuming the format it asked for.
 
 ## Connections
 
@@ -404,4 +424,8 @@ Please review [our security policy](.github/SECURITY.md) on how to report securi
 
 ## License
 
-Superlinked Sie Laravel is open-sourced software licensed under the [MIT license](LICENSE.md).
+SIE for Laravel is open-sourced software licensed under the [MIT license](LICENSE.md).
+
+
+
+TODO: add GitHub Actions against CPU SIE Server with same models

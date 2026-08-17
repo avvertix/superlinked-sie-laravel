@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use Sie\Client\Support\Binary;
 use Sie\Client\Support\MediaInput;
 
-it('converts raw bytes to standard base64 with no format inference', function () {
+it('keeps raw bytes as bytes, inferring no format for a bare string', function () {
     $wire = MediaInput::image("\xFF\xD8\xFF");
 
-    expect($wire)->toBe(['data' => base64_encode("\xFF\xD8\xFF"), 'format' => null])
-        ->and($wire['data'])->toBe('/9j/');
+    // Bytes stay raw and marked. How they travel is the body repository's call,
+    // because JSON wants base64 and msgpack wants a native bin, and the server
+    // rejects whichever one it did not ask for.
+    expect($wire['data'])->toBeInstanceOf(Binary::class);
+    expect($wire['data']->bytes)->toBe("\xFF\xD8\xFF");
+    expect($wire['format'])->toBeNull();
 });
 
 it('reads a file and infers the image format from its extension', function () {
@@ -18,7 +23,8 @@ it('reads a file and infers the image format from its extension', function () {
     try {
         $wire = MediaInput::image(new SplFileInfo($path));
 
-        expect($wire)->toBe(['data' => base64_encode("\x89PNG"), 'format' => 'png']);
+        expect($wire['data']->bytes)->toBe("\x89PNG");
+        expect($wire['format'])->toBe('png');
     } finally {
         unlink($path);
     }
@@ -58,20 +64,21 @@ it('infers the document format from its extension', function () {
     try {
         $wire = MediaInput::document(new SplFileInfo($path));
 
-        expect($wire)->toBe(['data' => base64_encode('%PDF'), 'format' => 'pdf']);
+        expect($wire['data']->bytes)->toBe('%PDF');
+        expect($wire['format'])->toBe('pdf');
     } finally {
         unlink($path);
     }
 });
 
-it('encodes empty binary as an empty string', function () {
-    expect(MediaInput::image(''))->toBe(['data' => '', 'format' => null]);
+it('keeps empty binary empty', function () {
+    expect(MediaInput::image('')['data']->bytes)->toBe('');
 });
 
-it('round-trips arbitrary binary through base64', function () {
+it('keeps arbitrary binary intact', function () {
     $binary = random_bytes(256);
 
-    expect(base64_decode(MediaInput::image($binary)['data'], true))->toBe($binary);
+    expect(MediaInput::image($binary)['data']->bytes)->toBe($binary);
 });
 
 it('throws when the file does not exist', function () {

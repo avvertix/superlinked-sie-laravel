@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Storage;
 use Sie\Client\Exceptions\RequestException;
+use Sie\Client\Support\WireFormat;
 use Sie\Exceptions\UnsupportedCapabilityException;
 use Sie\Facades\SIE;
 use Sie\Input;
@@ -115,4 +116,41 @@ it('reports a model that cannot serve the requested capability', function () {
 it('reports an unknown model as a plain request error, not a capability mismatch', function () {
     expect(fn () => SIE::model('no-such-model-at-all')->encode('Hello world'))
         ->toThrow(RequestException::class);
+});
+
+it('speaks msgpack by default', function () {
+    expect(SIE::connection()->format())->toBe(WireFormat::Msgpack);
+});
+
+it('returns the same vectors over both transports', function () {
+    $text = 'a duck paddles on a pond';
+
+    config()->set('superlinked-sie-laravel.connections.default.format', 'msgpack');
+    $viaMsgpack = SIE::connection()->client()->encode('BAAI/bge-m3', ['text' => $text]);
+
+    config()->set('superlinked-sie-laravel.connections.json.format', 'json');
+    config()->set('superlinked-sie-laravel.connections.json.url', Env::get('SIE_ENDPOINT'));
+    config()->set('superlinked-sie-laravel.connections.json.key', Env::get('SIE_KEY'));
+    $viaJson = SIE::connection('json')->client()->encode('BAAI/bge-m3', ['text' => $text]);
+
+    expect($viaMsgpack->dense)->toHaveCount(1024);
+    expect($viaJson->dense)->toHaveCount(1024);
+
+    // float32 reaches us as a raw buffer over msgpack and as decimal text over
+    // JSON, so they agree to float32 precision rather than bit-for-bit.
+    foreach ($viaMsgpack->dense as $i => $value) {
+        expect(abs($value - $viaJson->dense[$i]))->toBeLessThan(1e-6);
+    }
+});
+
+it('parses a document sent as raw bytes rather than base64', function () {
+    Storage::fake('documents');
+    Storage::disk('documents')->put('note.md', "# Ada Lovelace\n\nBorn in London.\n");
+
+    // Over msgpack the document travels as a native bin. The same bytes sent as
+    // a base64 string are rejected with "Expected `bytes`, got `str`".
+    $results = SIE::model('docling')->extract(Input::fromDisk('documents', 'note.md'));
+
+    expect($results->hasFailures())->toBeFalse();
+    expect($results->sole()->data)->not->toBeNull();
 });

@@ -9,9 +9,12 @@ use Sie\File;
 use SplFileInfo;
 
 /**
- * Converts image/document item inputs to the wire shape `{"data": string,
- * "format": string|null}`, where `data` is standard base64 — see
- * {@see ByteArray} for why.
+ * Converts image/document item inputs to the wire shape
+ * `{"data": Binary, "format": string|null}`.
+ *
+ * `data` stays raw bytes wrapped in {@see Binary}; how those bytes travel is
+ * the body repository's decision, because the two formats disagree — JSON
+ * wants base64, msgpack wants a native bin, and msgspec rejects the other one.
  *
  * Per the porting decision, this is bytes/path passthrough only: a plain
  * `string` is treated as already-loaded binary content (no re-encoding,
@@ -37,7 +40,7 @@ final class MediaInput
 
     /**
      * @param  string|SplFileInfo|array{data: string|SplFileInfo, format?: string|null}  $image
-     * @return array{data: string, format: string|null}
+     * @return array{data: Binary, format: string|null}
      */
     public static function image(string|SplFileInfo|array $image): array
     {
@@ -46,7 +49,7 @@ final class MediaInput
 
     /**
      * @param  string|SplFileInfo|array{data: string|SplFileInfo, format?: string|null}  $document
-     * @return array{data: string, format: string|null}
+     * @return array{data: Binary, format: string|null}
      */
     public static function document(string|SplFileInfo|array $document): array
     {
@@ -70,7 +73,7 @@ final class MediaInput
     /**
      * @param  string|SplFileInfo|array{data: string|SplFileInfo, format?: string|null}  $input
      * @param  array<string, string>  $extensionMap
-     * @return array{data: string, format: string|null}
+     * @return array{data: Binary, format: string|null}
      */
     private static function convert(string|SplFileInfo|array $input, array $extensionMap): array
     {
@@ -83,7 +86,7 @@ final class MediaInput
         [$bytes, $inferredFormat] = self::resolve($source, $extensionMap);
 
         return [
-            'data' => ByteArray::fromBinary($bytes),
+            'data' => new Binary($bytes),
             'format' => $hasExplicitFormat ? $input['format'] : $inferredFormat,
         ];
     }

@@ -6,6 +6,7 @@ namespace Sie\Client\Resources;
 
 use Sie\Client\Data\EncodeResult;
 use Sie\Client\Exceptions\ServerException;
+use Sie\Client\Http\SieResponse;
 use Sie\Client\Requests\Encode\EncodeRequest;
 use Sie\Client\Support\RequestMetadataParser;
 use Sie\Client\Support\RetryingRequestSender;
@@ -45,7 +46,7 @@ final class EncodeResource
         $response = $this->sender->send($requestFactory, $policy, $model, $gpu, $waitForCapacity, $provisionTimeoutS);
 
         $requestMetadata = RequestMetadataParser::parse($response);
-        $data = $response->json();
+        $data = SieResponse::decode($response);
         $timing = $data['timing'] ?? null;
 
         // The envelope's model is the id that actually served the request,

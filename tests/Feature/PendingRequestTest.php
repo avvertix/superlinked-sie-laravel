@@ -222,8 +222,12 @@ it('accepts a file directly as an input, without wrapping it', function () {
     $mock->assertSent(function (ExtractRequest $request): bool {
         $item = $request->body()->all()['items'][0];
 
-        expect($item['document'])->toBe(['data' => base64_encode('PDF-BYTES'), 'format' => 'pdf']);
+        expect($item['document']['data']->bytes)->toBe('PDF-BYTES');
+        expect($item['document']['format'])->toBe('pdf');
         expect($item)->not->toHaveKey('images');
+
+        // …and it reaches the wire as a native msgpack bin, not base64.
+        expect(bin2hex((string) $request->body()))->toContain('c409'.bin2hex('PDF-BYTES'));
 
         return true;
     });
@@ -238,8 +242,10 @@ it('routes a file with an image extension into the images field', function () {
     SIE::model('openai/clip-vit-base-patch32')->encode(File::disk('images', 'cover.jpg'));
 
     $mock->assertSent(function (EncodeRequest $request): bool {
-        expect($request->body()->all()['items'][0]['images'])
-            ->toBe([['data' => base64_encode('JPG'), 'format' => 'jpeg']]);
+        $image = $request->body()->all()['items'][0]['images'][0];
+
+        expect($image['data']->bytes)->toBe('JPG');
+        expect($image['format'])->toBe('jpeg');
 
         return true;
     });
@@ -278,8 +284,10 @@ it('accepts an SplFileInfo directly, the shape an uploaded file arrives in', fun
     SIE::model('docling')->extract(new SplFileInfo($path));
 
     $mock->assertSent(function (ExtractRequest $request): bool {
-        expect($request->body()->all()['items'][0]['document'])
-            ->toBe(['data' => base64_encode('PDF-BYTES'), 'format' => 'pdf']);
+        $document = $request->body()->all()['items'][0]['document'];
+
+        expect($document['data']->bytes)->toBe('PDF-BYTES');
+        expect($document['format'])->toBe('pdf');
 
         return true;
     });

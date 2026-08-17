@@ -24,6 +24,12 @@ A named, configured SIE endpoint — one URL plus its credentials. An applicatio
 several; one is the default.
 _Avoid_: instance, cluster, server, driver
 
+**Wire format**:
+How a request and a response are serialized: msgpack, which the cluster prefers and which
+carries vectors and files as raw bytes, or JSON. Chosen per **Connection**, and never
+observable in the values a caller gets back.
+_Avoid_: encoding, serializer, content type, protocol
+
 ### Models
 
 **Model**:

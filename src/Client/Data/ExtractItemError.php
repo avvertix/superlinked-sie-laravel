@@ -21,9 +21,9 @@ final class ExtractItemError
      * missing, non-string, or blank — the item still failed, so it must not be
      * silently downgraded to "no error".
      */
-    public const MALFORMED_CODE = 'INTERNAL_ERROR';
+    public const string MALFORMED_CODE = 'INTERNAL_ERROR';
 
-    public const MALFORMED_MESSAGE = 'Malformed extraction item error';
+    public const string MALFORMED_MESSAGE = 'Malformed extraction item error';
 
     public function __construct(
         public readonly string $code,

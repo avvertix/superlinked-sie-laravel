@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use Sie\Client\Support\WireList;
+
 /** Result of scoring items against a query, sorted by relevance (descending). */
 final class ScoreResult
 {
@@ -27,7 +29,7 @@ final class ScoreResult
 
         return new self(
             model: (string) $data['model'],
-            scores: array_map(ScoreEntry::fromArray(...), $data['scores'] ?? []),
+            scores: array_map(ScoreEntry::fromArray(...), WireList::of($data['scores'] ?? null, 'scores')),
             queryId: $data['query_id'] ?? null,
             usage: is_array($usage) ? ScoreUsage::fromArray($usage) : null,
             request: $request,

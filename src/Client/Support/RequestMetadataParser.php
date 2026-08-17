@@ -18,7 +18,7 @@ use Sie\Client\Data\RequestMetadata;
 final class RequestMetadataParser
 {
     /** Generous ceiling; the gateway currently sends a 36-char UUIDv7. */
-    private const MAX_REQUEST_ID_LENGTH = 256;
+    private const int MAX_REQUEST_ID_LENGTH = 256;
 
     /** Returns `null` when nothing valid was present, so callers can skip attaching. */
     public static function parse(Response $response): ?RequestMetadata

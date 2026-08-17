@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use Sie\Client\Support\WireList;
+
 /**
  * One SSE event from `SieClient::streamChatCompletions()`.
  *
@@ -37,7 +39,7 @@ final class ChatCompletionChunk
             object: (string) ($data['object'] ?? ''),
             created: (int) ($data['created'] ?? 0),
             model: (string) ($data['model'] ?? ''),
-            choices: array_map(ChatChunkChoice::fromArray(...), $data['choices'] ?? []),
+            choices: array_map(ChatChunkChoice::fromArray(...), WireList::of($data['choices'] ?? null, 'choices')),
             systemFingerprint: $data['system_fingerprint'] ?? null,
             usage: is_array($usage) ? GenerationUsage::fromArray($usage) : null,
         );

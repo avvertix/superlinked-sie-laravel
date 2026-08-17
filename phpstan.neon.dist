@@ -1,5 +1,14 @@
 parameters:
-    level: 7
+    level: 8
     paths:
         - src
     tmpDir: build/phpstan
+
+    # Larastan boots the application inside every analysis worker, and each boot
+    # rewrites testbench's bootstrap/cache/services.php with a write-temp-then-
+    # rename. On Windows that rename fails with "Access is denied" when another
+    # worker holds the file, which failed roughly one run in three and left
+    # orphaned ser*.tmp files behind. Analysing in a single process removes the
+    # race for about four seconds on a cold cache.
+    parallel:
+        maximumNumberOfProcesses: 1

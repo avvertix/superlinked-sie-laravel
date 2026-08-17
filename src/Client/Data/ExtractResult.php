@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use Sie\Client\Support\WireList;
+
 /** Result of extraction for a single item. */
 final class ExtractResult
 {
@@ -35,10 +37,10 @@ final class ExtractResult
         $error = $item['error'] ?? null;
 
         return new self(
-            entities: array_map(Entity::fromArray(...), $item['entities'] ?? []),
-            relations: array_map(Relation::fromArray(...), $item['relations'] ?? []),
-            classifications: array_map(Classification::fromArray(...), $item['classifications'] ?? []),
-            objects: array_map(DetectedObject::fromArray(...), $item['objects'] ?? []),
+            entities: array_map(Entity::fromArray(...), WireList::of($item['entities'] ?? null, 'entities')),
+            relations: array_map(Relation::fromArray(...), WireList::of($item['relations'] ?? null, 'relations')),
+            classifications: array_map(Classification::fromArray(...), WireList::of($item['classifications'] ?? null, 'classifications')),
+            objects: array_map(DetectedObject::fromArray(...), WireList::of($item['objects'] ?? null, 'objects')),
             id: $item['id'] ?? null,
             data: $item['data'] ?? null,
             error: $error !== null ? ExtractItemError::fromWire($error) : null,

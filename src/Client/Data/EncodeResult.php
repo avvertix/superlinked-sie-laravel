@@ -35,6 +35,7 @@ final class EncodeResult
     /**
      * @param  array<string, mixed>  $item  Wire shape (per `EncodeResult` in the gateway's OpenAPI spec):
      *                                      `{id?, dense?: {values: float[]}, sparse?: {indices, values}, multivector?: {values: float[][]}}`.
+     * @param  array<string, mixed>|null  $timing  Envelope-level timings, injected into every result in the batch.
      * @param  ?string  $model  Envelope-level model id, injected into every result in the batch.
      */
     public static function fromArray(array $item, ?array $timing = null, ?string $model = null, ?RequestMetadata $request = null): self

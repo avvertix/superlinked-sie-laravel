@@ -7,11 +7,10 @@
     <a href="https://packagist.org/packages/avvertix/superlinked-sie-laravel"><img src="https://img.shields.io/packagist/php-v/avvertix/superlinked-sie-laravel.svg?style=flat-square" alt="PHP from Packagist"></a>
     <a href="https://packagist.org/packages/avvertix/superlinked-sie-laravel"><img src="https://badge.laravel.cloud/badge/avvertix/superlinked-sie-laravel?style=flat" alt="Laravel versions"></a>
     <a href="https://github.com/avvertix/superlinked-sie-laravel/actions"><img alt="GitHub Workflow Status (main)" src="https://img.shields.io/github/actions/workflow/status/avvertix/superlinked-sie-laravel/tests.yml?branch=main&label=Tests&style=flat-square"></a>
-    <a href="https://packagist.org/packages/avvertix/superlinked-sie-laravel"><img src="https://img.shields.io/packagist/dt/avvertix/superlinked-sie-laravel.svg?style=flat-square" alt="Total Downloads"></a>
 </p>
 
 
-SIE for Laravel provides access to [Superlinked Inference Engine (SIE)](https://superlinked.com/blog/launch), a multi-model inference cluster for search and document processing. It allows to use [100+ models](https://superlinked.com/models) across encoding, scoring, and extraction deployed via a SIE server or gateway.
+SIE for Laravel provides access to [Superlinked Inference Engine (SIE)](https://superlinked.com/blog/launch), deployed models. SIE is a multi-model inference cluster for search and document processing. It allows to use [100+ models](https://superlinked.com/models) across encoding, scoring, and extraction.
 
 ```php
 use Sie\Facades\SIE;
@@ -35,19 +34,11 @@ composer require avvertix/superlinked-sie-laravel
 Then point it at your cluster:
 
 ```dotenv
-SIE_ENDPOINT=https://sie.example.com
+SIE_ENDPOINT=https://sie.localhost
 SIE_KEY=your-api-key
 ```
 
-You may publish all of the package's resources at once:
-
-```bash
-php artisan vendor:publish --tag="superlinked-sie-laravel"
-```
-
-Or, you may publish each resource individually:
-
-### Publishing the Configuration File
+You may publish the configuration file via:
 
 ```bash
 php artisan vendor:publish --tag="superlinked-sie-laravel-config"
@@ -55,7 +46,7 @@ php artisan vendor:publish --tag="superlinked-sie-laravel-config"
 
 ## Concepts
 
-The package uses SIE's own vocabulary. [`CONTEXT.md`](CONTEXT.md) is the full glossary; these are the terms you meet first:
+The package uses SIE's own vocabulary, these are the terms you meet first: 
 
 | Term | Meaning |
 | --- | --- |
@@ -67,9 +58,11 @@ The package uses SIE's own vocabulary. [`CONTEXT.md`](CONTEXT.md) is the full gl
 
 Run `SIE::models()` to see what your cluster actually serves, including each model's inputs, outputs, and dimensions.
 
+Head to [`CONTEXT.md`](CONTEXT.md) for the full glossary.
+
 ## Usage
 
-A fluent API to bring you from a model to **encode**, **score**, **extract**, **generate**. Using the Fluent API you can chain options.
+A fluent API bring you from a model to **encode**, **score**, **extract**, **generate**. Options can be chained, supporting conditionals.
 
 ### Encode
 
@@ -94,7 +87,7 @@ $result->sparse;       // SparseResult
 $result->multivector;  // list<list<float>>
 ```
 
-Encoding a search query is not the same as encoding a stored document; models that care about the difference read `asQuery()`:
+Encoding a search query is not the same as encoding a stored document; models that care about the difference can be instructed chaining `asQuery()`:
 
 ```php
 SIE::model('BAAI/bge-m3')->asQuery()->encode('waterfowl that swims');
@@ -169,14 +162,14 @@ Input::document(File::make('local/path.pdf'));        // the default disk
 Input::text('caption')->withImage($a, $b);            // one input, several parts
 ```
 
-For files, the shorthand skips the wrapper. The extension decides whether it lands in the document field or the image field, and the two tables don't overlap:
+For files, the shorthand skips the wrapper. The extension decides whether it lands in the document field or the image field:
 
 ```php
 Input::fromDisk('s3', 'invoices/march.pdf');   // → document
 Input::fromDisk('s3', 'cover.jpg');            // → image
 Input::fromDisk('s3', 'march.pdf', 'doc-1');   // …with an id
 
-// A file is an input on its own, so the terminals take one directly.
+// A file is an input on its own, so the capability methods take one directly.
 SIE::model('docling')->extract(File::disk('s3', 'invoices/march.pdf'));
 SIE::model('docling')->extract($request->file('upload'));
 
@@ -184,7 +177,7 @@ $paths = ['a.pdf', 'b.pdf', 'c.pdf'];
 SIE::model('docling')->extract(array_map(fn ($p) => Input::fromDisk('s3', $p), $paths));
 ```
 
-An extension in neither table is refused rather than guessed — say which you meant:
+In case the type, document or image, cannot be identified automatically you can `documentFromDisk` and `imageFromDisk` respectively.
 
 ```php
 Input::fromDisk('s3', 'archive.bin');
@@ -195,12 +188,12 @@ Input::documentFromDisk('s3', 'archive.bin');
 Input::imageFromDisk('scans', 'page-1');
 ```
 
-Files are read lazily — nothing touches the disk until the request is sent, so a half-built chain can be handed straight to a queued job:
+Files are read lazily. Nothing touches the disk until the request is sent, so a half-built chain can be handed straight to a queued job:
 
 ```php
 class EmbedDocument implements ShouldQueue
 {
-    public function __construct(private Sie\PendingRequest $request) {}
+    public function __construct(private Sie\PendingRequest $request, private string $path) {}
 
     public function handle(): void
     {
@@ -208,7 +201,7 @@ class EmbedDocument implements ShouldQueue
     }
 }
 
-dispatch(new EmbedDocument(SIE::model('BAAI/bge-m3')->pool('eval-bench')));
+dispatch(new EmbedDocument(SIE::model('BAAI/bge-m3')->pool('eval-bench'), 'document.pdf'));
 ```
 
 > **Memory:** a batch is serialized in full before it is sent, so it is held in memory at once. Over msgpack that is the raw size of your files; over JSON add ~37% for base64. Requests over `max_request_bytes` (32 MB by default, counted on raw bytes) throw `RequestTooLargeException` instead of risking the memory limit. Split large batches yourself; the package will not silently split them for you.
@@ -234,10 +227,8 @@ A score response also carries per-request information that belongs to the whole 
 $ranked = SIE::model('BAAI/bge-m3')->score($query, $documents);
 
 $ranked->model;              // the model that actually served it, after alias/profile resolution
-$ranked->usage->inputTokens; // 34 — the billable number
+$ranked->usage->inputTokens; // 34, the consumed tokens
 $ranked->queryId;            // server-assigned, when the cluster assigns one
-
-$ranked->filter(fn ($entry) => $entry->score > 0.6)->usage->inputTokens; // still 34
 ```
 
 ## Profiles, pools and GPUs
@@ -271,23 +262,25 @@ SIE::model('docling')->warmup(Input::document(File::make('fixtures/stub.pdf')));
 
 ## Wire format
 
-SIE speaks **msgpack** and **JSON**, and prefers msgpack — an inference request with no `Accept` header comes back as msgpack. This package defaults to it, and you should have no reason to notice: both formats decode to identical PHP values.
-
-It is worth having because it is a lot smaller. The same 1024-dimension encode, measured against a live cluster:
+SIE speaks **msgpack** and **JSON**. The package defaults to msgpack and negotiate the most appropriate content type when needed. For example the same 1024-dimension encode, measured against a live cluster:
 
 | | msgpack | JSON |
 | --- | --- | --- |
 | Response size | **4,313 bytes** | 16,569 bytes |
 
-Vectors arrive as raw little-endian buffers rather than decimal text, and files are sent as raw bytes rather than base64. Switch a connection to JSON when you want a readable body on the wire, or when something between you and the cluster mangles binary payloads:
+You can switch a connection to JSON when you want a readable body on the wire, or when something between you and the cluster mangles binary payloads:
 
 ```php
 'connections' => [
-    'default' => ['url' => env('SIE_ENDPOINT'), 'key' => env('SIE_KEY'), 'format' => 'json'],
+    'default' => [
+        'url' => env('SIE_ENDPOINT'),
+        'key' => env('SIE_KEY'),
+        'format' => 'json'
+    ],
 ],
 ```
 
-Only encode, score and extract negotiate. `generate` has no msgpack support server-side, `SIE::models()` and health always answer JSON, and streaming is JSON frames over SSE. Errors are JSON on every path, which the package handles by trusting the response's `Content-Type` rather than assuming the format it asked for.
+Worth note that `generate` always use JSON, `SIE::models()` and health always answer JSON, and streaming is JSON frames over SSE.
 
 ## Connections
 
@@ -307,7 +300,7 @@ SIE::connection('eu')->models();
 
 ## Pools
 
-Pools have a lifecycle rather than a per-request shape, so they sit on their own non-fluent API. There is no background lease renewal — renew on your own schedule for as long as you want a pool kept alive.
+Pools have a lifecycle rather than a per-request shape, so they sit on their own. There is no background lease renewal — renew on your own schedule for as long as you want a pool kept alive.
 
 ```php
 SIE::pools()->create('eval-bench', gpus: ['l4' => 2], pinnedModels: ['BAAI/bge-m3']);
@@ -371,7 +364,8 @@ Reranking::of(['a duck', 'a turbine'])->rerank('waterfowl', 'sie');
 
 Setting `default_for_embeddings` (or `default_for_reranking`) to `sie` in `config/ai.php` lets you drop the provider argument entirely, which is what makes vector stores and agents pick SIE up without further wiring.
 
-The bridge is **dense-only**: `EmbeddingGateway` has room for one representation and one width, so sparse and multivector output stays on the native `SIE::` surface. SIE's own options — `instruction`, `is_query`, `profile`, `pool`, `gpu` — travel through `providerOptions` when you call a provider directly:
+
+You can pass also options such as`instruction`, `is_query`, `profile`, `pool`, `gpu` through `providerOptions` when you call a provider directly:
 
 ```php
 app(Laravel\Ai\AiManager::class)->instance('sie')->embeddings(
@@ -380,6 +374,8 @@ app(Laravel\Ai\AiManager::class)->instance('sie')->embeddings(
     providerOptions: ['instruction' => 'retrieve', 'is_query' => true, 'pool' => 'eval-bench'],
 );
 ```
+
+Laravel AI embeddings support only one vector representation. If you care about multivector or sparse use the SIE facade directly. 
 
 Dimensions are never guessed — a wrong width does not error, it silently mismatches your vector column and surfaces later as poor recall. Configure them explicitly, or the bridge throws.
 

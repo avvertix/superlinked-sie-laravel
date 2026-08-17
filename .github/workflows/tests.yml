@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         php: [8.3, 8.4, 8.5]
         laravel: [13.*]
         stability: [prefer-lowest, prefer-stable]
@@ -31,7 +31,15 @@ jobs:
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
-    
+    services:
+      sie:
+        image: ghcr.io/superlinked/sie-server:v0.7.1-cpu-default
+        env:
+          SIE_DEVICE: cpu
+          SIE_MAX_BATCH_REQUESTS: 128
+          SIE_PRELOAD_MODELS: docling,urchade/gliner_multi-v2.1,docling:ocr,NeuML/gliner-bert-tiny,BAAI/bge-m3
+        ports:
+          - 8080:8080
 
     steps:
       - name: Checkout code
@@ -65,15 +73,6 @@ jobs:
 
       - name: Test Suite
         if: runner.os != 'Windows'
-        services:
-          sie:
-            image: ghcr.io/superlinked/sie-server:v0.7.1-cpu-default
-            env:
-              SIE_DEVICE: cpu
-              SIE_MAX_BATCH_REQUESTS: 128
-              SIE_PRELOAD_MODELS: docling,urchade/gliner_multi-v2.1,docling:ocr,NeuML/gliner-bert-tiny,BAAI/bge-m3
-            ports:
-              - 8080
         env:
           SIE_ENDPOINT: http://sie:8080
         run: composer test:unit

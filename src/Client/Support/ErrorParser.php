@@ -10,6 +10,7 @@ use Sie\Client\Exceptions\ModelLoadFailedException;
 use Sie\Client\Exceptions\ProvisioningException;
 use Sie\Client\Exceptions\RequestException;
 use Sie\Client\Exceptions\ServerException;
+use Sie\Client\Http\SieResponse;
 
 /**
  * Parses SIE error envelopes and header hints, and raises the matching typed
@@ -42,11 +43,10 @@ final class ErrorParser
      */
     public static function getErrorDetail(Response $response): ?array
     {
-        $data = $response->json();
-
-        if (! is_array($data)) {
-            return null;
-        }
+        // Decoded rather than json()'d: an error body is JSON on every path,
+        // but going through the same decoder keeps one way of reading a body
+        // and guarantees an array without a redundant check.
+        $data = SieResponse::decode($response);
 
         if (array_key_exists('error', $data)) {
             return is_array($data['error']) ? $data['error'] : null;
@@ -113,29 +113,29 @@ final class ErrorParser
         $code = null;
         $message = "HTTP {$status}";
 
-        $data = $response->json();
+        $data = SieResponse::decode($response);
 
-        if (is_array($data)) {
-            if (array_key_exists('error', $data)) {
-                $error = $data['error'];
+        if (array_key_exists('error', $data)) {
+            $error = $data['error'];
 
-                if (is_array($error)) {
-                    $code = $error['code'] ?? null;
-                    $message = (string) ($error['message'] ?? $message);
-                } else {
-                    $message = (string) $error;
-                }
-            } elseif (array_key_exists('detail', $data)) {
-                $detail = $data['detail'];
-
-                if (is_array($detail)) {
-                    $code = $detail['code'] ?? null;
-                    $message = (string) ($detail['message'] ?? json_encode($detail));
-                } else {
-                    $message = (string) $detail;
-                }
+            if (is_array($error)) {
+                $code = $error['code'] ?? null;
+                $message = (string) ($error['message'] ?? $message);
+            } else {
+                $message = (string) $error;
             }
-        } else {
+        } elseif (array_key_exists('detail', $data)) {
+            $detail = $data['detail'];
+
+            if (is_array($detail)) {
+                $code = $detail['code'] ?? null;
+                $message = (string) ($detail['message'] ?? json_encode($detail));
+            } else {
+                $message = (string) $detail;
+            }
+        } elseif ($data === []) {
+            // Nothing structured came back — an intermediary's HTML error page,
+            // say. Its raw text tells the caller more than "HTTP 502" does.
             $body = $response->body();
             $message = $body !== '' ? $body : $message;
         }

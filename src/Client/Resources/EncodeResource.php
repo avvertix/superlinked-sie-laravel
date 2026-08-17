@@ -11,6 +11,7 @@ use Sie\Client\Requests\Encode\EncodeRequest;
 use Sie\Client\Support\RequestMetadataParser;
 use Sie\Client\Support\RetryingRequestSender;
 use Sie\Client\Support\RetryPolicy;
+use Sie\Client\Support\WireList;
 
 final class EncodeResource
 {
@@ -56,7 +57,7 @@ final class EncodeResource
 
         $results = array_map(
             static fn (array $item): EncodeResult => EncodeResult::fromArray($item, $timing, $responseModel, $requestMetadata),
-            $data['items'] ?? [],
+            WireList::of($data['items'] ?? null, 'items'),
         );
 
         self::assertResultCount($results, count($payload['items']), $model);

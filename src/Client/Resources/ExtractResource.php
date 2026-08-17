@@ -10,6 +10,7 @@ use Sie\Client\Requests\Extract\ExtractRequest;
 use Sie\Client\Support\RequestMetadataParser;
 use Sie\Client\Support\RetryingRequestSender;
 use Sie\Client\Support\RetryPolicy;
+use Sie\Client\Support\WireList;
 
 final class ExtractResource
 {
@@ -51,7 +52,7 @@ final class ExtractResource
 
         return array_map(
             static fn (array $item): ExtractResult => ExtractResult::fromArray($item, $requestMetadata),
-            $data['items'] ?? [],
+            WireList::of($data['items'] ?? null, 'items'),
         );
     }
 }

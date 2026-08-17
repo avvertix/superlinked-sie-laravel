@@ -9,6 +9,7 @@ use Sie\Client\Data\WorkerInfo;
 use Sie\Client\Exceptions\RequestException;
 use Sie\Client\Requests\Health\GetHealthRequest;
 use Sie\Client\Support\SimpleRequestSender;
+use Sie\Client\Support\WireList;
 
 final class CapacityResource
 {
@@ -35,7 +36,7 @@ final class CapacityResource
                 queueDepth: $worker['queue_depth'] ?? null,
                 loadedModels: $worker['loaded_models'] ?? null,
             ),
-            $data['workers'] ?? [],
+            WireList::of($data['workers'] ?? null, 'workers'),
         );
 
         if ($gpu !== null) {

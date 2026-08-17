@@ -8,6 +8,7 @@ use Sie\Client\Data\ModelInfo;
 use Sie\Client\Requests\Models\GetModelRequest;
 use Sie\Client\Requests\Models\ListModelsRequest;
 use Sie\Client\Support\SimpleRequestSender;
+use Sie\Client\Support\WireList;
 
 final class ModelsResource
 {
@@ -21,7 +22,7 @@ final class ModelsResource
         $response = $this->sender->send(new ListModelsRequest);
         $data = $response->json();
 
-        return array_map(ModelInfo::fromArray(...), $data['models'] ?? []);
+        return array_map(ModelInfo::fromArray(...), WireList::of($data['models'] ?? null, 'models'));
     }
 
     public function get(string $model): ModelInfo

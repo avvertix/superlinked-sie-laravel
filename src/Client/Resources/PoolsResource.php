@@ -10,6 +10,7 @@ use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\PoolInfo;
 use Sie\Client\Exceptions\PoolException;
 use Sie\Client\Exceptions\SieConnectionException;
+use Sie\Client\Http\SieResponse;
 use Sie\Client\Requests\Pools\CreatePoolRequest;
 use Sie\Client\Requests\Pools\DeletePoolRequest;
 use Sie\Client\Requests\Pools\GetPoolRequest;
@@ -58,9 +59,7 @@ final class PoolsResource
             throw new PoolException("Failed to get pool '{$name}': ".self::extractMessage($response), poolName: $name);
         }
 
-        $data = $response->json();
-
-        return PoolInfo::fromArray(is_array($data) ? $data : [], $name);
+        return PoolInfo::fromArray(SieResponse::decode($response), $name);
     }
 
     public function delete(string $name): bool
@@ -97,18 +96,15 @@ final class PoolsResource
 
     private static function extractMessage(Response $response): string
     {
-        $data = $response->json();
+        $data = SieResponse::decode($response);
+        $detail = $data['detail'] ?? null;
 
-        if (is_array($data)) {
-            $detail = $data['detail'] ?? null;
+        if (is_array($detail)) {
+            return (string) ($detail['message'] ?? json_encode($data));
+        }
 
-            if (is_array($detail)) {
-                return (string) ($detail['message'] ?? json_encode($data));
-            }
-
-            if (is_string($detail)) {
-                return $detail;
-            }
+        if (is_string($detail)) {
+            return $detail;
         }
 
         $body = $response->body();

@@ -21,10 +21,10 @@ use Throwable;
 final class ConnectionErrorClassifier
 {
     /** CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT, CURLE_OPERATION_TIMEDOUT, CURLE_GOT_NOTHING, CURLE_SEND_ERROR, CURLE_RECV_ERROR */
-    private const TRANSIENT_CURL_ERRNOS = [6, 7, 28, 52, 55, 56];
+    private const array TRANSIENT_CURL_ERRNOS = [6, 7, 28, 52, 55, 56];
 
     /** CURLE_SSL_* range */
-    private const SSL_CURL_ERRNOS = [35, 51, 53, 54, 58, 59, 60, 66, 77, 82, 83, 90, 91];
+    private const array SSL_CURL_ERRNOS = [35, 51, 53, 54, 58, 59, 60, 66, 77, 82, 83, 90, 91];
 
     public static function isTransient(Throwable $exception): bool
     {

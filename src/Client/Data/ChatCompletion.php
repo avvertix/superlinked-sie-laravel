@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use Sie\Client\Support\WireList;
+
 /** Non-streaming response from `SieClient::chatCompletions()`. */
 final class ChatCompletion
 {
@@ -32,7 +34,7 @@ final class ChatCompletion
             object: (string) ($data['object'] ?? ''),
             created: (int) ($data['created'] ?? 0),
             model: (string) ($data['model'] ?? ''),
-            choices: array_map(ChatChoice::fromArray(...), $data['choices'] ?? []),
+            choices: array_map(ChatChoice::fromArray(...), WireList::of($data['choices'] ?? null, 'choices')),
             systemFingerprint: $data['system_fingerprint'] ?? null,
             usage: is_array($usage) ? GenerationUsage::fromArray($usage) : null,
         );

@@ -25,12 +25,12 @@ use SplFileInfo;
  */
 final class MediaInput
 {
-    private const IMAGE_EXTENSIONS = [
+    private const array IMAGE_EXTENSIONS = [
         'jpg' => 'jpeg', 'jpeg' => 'jpeg', 'png' => 'png',
         'gif' => 'gif', 'webp' => 'webp', 'bmp' => 'bmp', 'tiff' => 'tiff',
     ];
 
-    private const DOCUMENT_EXTENSIONS = [
+    private const array DOCUMENT_EXTENSIONS = [
         'pdf' => 'pdf', 'docx' => 'docx', 'doc' => 'doc',
         'html' => 'html', 'htm' => 'html', 'xhtml' => 'html',
         'md' => 'md', 'markdown' => 'md', 'txt' => 'txt',
@@ -104,7 +104,16 @@ final class MediaInput
                 throw new RuntimeException("Unable to read file: {$path}");
             }
 
-            return [file_get_contents($path), self::inferFormat($path, $extensionMap)];
+            $bytes = file_get_contents($path);
+
+            // Readable and read are two separate syscalls: the file can vanish
+            // or lose permissions between them, and a silent `false` would
+            // reach the wire as an empty document.
+            if ($bytes === false) {
+                throw new RuntimeException("Unable to read file: {$path}");
+            }
+
+            return [$bytes, self::inferFormat($path, $extensionMap)];
         }
 
         return [$source, null];

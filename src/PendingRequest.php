@@ -50,16 +50,16 @@ final class PendingRequest
      * pool, gpu, and the capacity settings) apply everywhere and are held in
      * their own properties rather than in `$params`.
      */
-    private const CAPABILITY_OPTIONS = [
+    private const array CAPABILITY_OPTIONS = [
         'encode' => ['instruction', 'options', 'outputs', 'outputDtype', 'asQuery'],
         'score' => ['instruction', 'options'],
         'extract' => ['instruction', 'options', 'labels', 'schema'],
         'generate' => ['maxNewTokens', 'temperature', 'topP', 'stop'],
     ];
 
-    private const DEFAULT_MAX_REQUEST_BYTES = 33554432;
+    private const int DEFAULT_MAX_REQUEST_BYTES = 33554432;
 
-    private const DEFAULT_MAX_NEW_TOKENS = 512;
+    private const int DEFAULT_MAX_NEW_TOKENS = 512;
 
     /** @var array<string, mixed> */
     private array $params = [];

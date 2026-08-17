@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use Sie\Client\Support\WireList;
+
 /** Pool status information ("pending" | "active" | "expired"). */
 final class PoolStatusInfo
 {
@@ -24,7 +26,7 @@ final class PoolStatusInfo
     {
         return new self(
             state: $data['state'] ?? null,
-            assignedWorkers: array_map(AssignedWorkerInfo::fromArray(...), $data['assigned_workers'] ?? []),
+            assignedWorkers: array_map(AssignedWorkerInfo::fromArray(...), WireList::of($data['assigned_workers'] ?? null, 'assigned_workers')),
             createdAt: $data['created_at'] ?? null,
             lastRenewed: $data['last_renewed'] ?? null,
         );

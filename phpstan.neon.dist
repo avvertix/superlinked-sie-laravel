@@ -11,4 +11,4 @@ parameters:
     # orphaned ser*.tmp files behind. Analysing in a single process removes the
     # race for about four seconds on a cold cache.
     parallel:
-        maximumNumberOfProcesses: 1
+        maximumNumberOfProcesses: 4

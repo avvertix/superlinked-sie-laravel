@@ -32,9 +32,9 @@
         "laravel/pint": "^1.29",
         "laravel/prompts": "^0.3",
         "orchestra/testbench": "^11.0",
-        "pestphp/pest": "^4.6",
-        "pestphp/pest-plugin-laravel": "^4.1",
-        "pestphp/pest-plugin-type-coverage": "^4.0",
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-type-coverage": "^5.0",
         "phpstan/extension-installer": "^1.4"
     },
     "autoload": {

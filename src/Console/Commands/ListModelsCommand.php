@@ -23,8 +23,7 @@ class ListModelsCommand extends Command
     protected $signature = 'sie:models
                             {filter? : Only show models whose name contains this}
                             {--loaded : Only show models currently loaded on a worker}
-                            {--connection= : The SIE connection to read, defaulting to the configured one}
-                            {--fresh : Bypass the cached catalog and ask the cluster}';
+                            {--connection= : The SIE connection to read, defaulting to the configured one}';
 
     protected $description = 'List the models a SIE cluster serves';
 
@@ -35,7 +34,7 @@ class ListModelsCommand extends Command
 
         try {
             $connection = $manager->connection($name);
-            $models = $connection->models(fresh: (bool) $this->option('fresh'));
+            $models = $connection->models();
         } catch (Throwable $exception) {
             // A missing connection, an unset url, or an unreachable cluster are
             // all ordinary operator mistakes, and a stack trace helps nobody.

@@ -14,7 +14,7 @@ use Sie\SieManager;
  *
  * @method static \Sie\PendingRequest model(string $model)
  * @method static \Sie\Connection connection(?string $name = null)
- * @method static \Illuminate\Support\Collection<int, \Sie\Client\Data\ModelInfo> models(bool $fresh = false)
+ * @method static \Illuminate\Support\Collection<int, \Sie\Client\Data\ModelInfo> models()
  * @method static \Sie\Client\Data\CapacityInfo capacity(?string $gpu = null)
  * @method static \Sie\Client\Data\CapacityInfo waitForCapacity(string $gpu, ?float $timeoutS = null)
  * @method static \Sie\Pools pools()

@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Sie;
 
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\CapacityInfo;
@@ -78,30 +75,16 @@ final class Connection
      * Every model this cluster can serve, with its declared inputs, outputs,
      * and dimensions.
      *
-     * Cached, because the catalog changes when a cluster is redeployed rather
-     * than per request. Pass `fresh: true` to bypass the cache.
+     * Read live every time. The catalog is not on any request path — nothing in
+     * this package reads it to build a request — so it is only ever fetched
+     * when an application or an operator asks for it directly. An application
+     * that does call it in a loop can wrap it in `Cache::remember` itself.
      *
      * @return Collection<int, ModelInfo>
      */
-    public function models(bool $fresh = false): Collection
+    public function models(): Collection
     {
-        $ttl = (int) $this->packageConfig('catalog.ttl', 3600);
-
-        if ($fresh || $ttl <= 0) {
-            return new Collection($this->client()->listModels());
-        }
-
-        $store = $this->packageConfig('catalog.store', null);
-        $key = "superlinked-sie:catalog:{$this->name}";
-
-        /** @var list<ModelInfo> $models */
-        $models = Cache::store(is_string($store) ? $store : null)->remember(
-            $key,
-            $ttl,
-            fn (): array => $this->client()->listModels(),
-        );
-
-        return new Collection($models);
+        return new Collection($this->client()->listModels());
     }
 
     public function capacity(?string $gpu = null): CapacityInfo
@@ -154,13 +137,5 @@ final class Connection
             is_string($gpu) && $gpu !== '' => $gpu,
             default => null,
         };
-    }
-
-    private function packageConfig(string $key, mixed $default): mixed
-    {
-        /** @var Repository $config */
-        $config = Container::getInstance()->make('config');
-
-        return $config->get("superlinked-sie-laravel.{$key}", $default);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sie\Client\Support;
 
 use GuzzleHttp\Exception\ConnectException;
+use Psr\Http\Client\NetworkExceptionInterface;
 use Saloon\Exceptions\Request\FatalRequestException;
 use Saloon\Http\Request;
 use Saloon\Http\Response;
@@ -14,6 +15,7 @@ use Sie\Client\Exceptions\ModelLoadingException;
 use Sie\Client\Exceptions\ProvisioningException;
 use Sie\Client\Exceptions\ResourceExhaustedException;
 use Sie\Client\Exceptions\SieConnectionException;
+use Throwable;
 
 /**
  * The shared provisioning / model-loading / LoRA-loading / OOM retry loop
@@ -65,7 +67,11 @@ final class RetryingRequestSender
 
             try {
                 $response = $this->connector->send($request);
-            } catch (FatalRequestException $exception) {
+                // Saloon wraps Guzzle's ConnectException, but Guzzle 8 reports
+                // other no-response failures (send/receive errors, network
+                // timeouts) as NetworkException, which Saloon's sender lets
+                // through unwrapped — they are connect failures to us either way.
+            } catch (FatalRequestException|NetworkExceptionInterface $exception) {
                 if ($this->shouldRetryConnectFailure($exception, $policy, $waitForCapacity)) {
                     $delay = Backoff::transientRetryDelay($elapsed, $provisionTimeoutS);
 
@@ -153,16 +159,16 @@ final class RetryingRequestSender
         }
     }
 
-    private function shouldRetryConnectFailure(FatalRequestException $exception, RetryPolicy $policy, bool $waitForCapacity): bool
+    private function shouldRetryConnectFailure(Throwable $exception, RetryPolicy $policy, bool $waitForCapacity): bool
     {
         if (! $waitForCapacity) {
             return false;
         }
 
-        $previous = $exception->getPrevious();
+        $failure = $exception instanceof FatalRequestException ? $exception->getPrevious() : $exception;
 
-        if ($previous instanceof ConnectException) {
-            return ConnectionErrorClassifier::isTransient($previous);
+        if ($failure instanceof ConnectException) {
+            return ConnectionErrorClassifier::isTransient($failure);
         }
 
         return $policy->retryMidFlightTransportErrors;

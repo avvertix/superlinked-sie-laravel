@@ -69,7 +69,7 @@ it('extracts entities from a document input', function () {
 
     $model = firstModelMatching(
         $client,
-        ['docling', 'docling:ocr'],
+        ['docling:ocr'],
         static fn (ModelInfo $m): bool => in_array('document', $m->inputs ?? [], true),
     );
 

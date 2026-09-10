@@ -326,7 +326,6 @@ php artisan sie:models bge                 # only names containing "bge"
 php artisan sie:models --loaded            # only what is loaded on a worker right now
 php artisan sie:models bge --loaded        # both
 php artisan sie:models --connection=eu     # read a named connection
-php artisan sie:models --fresh             # bypass the cached catalog
 ```
 
 ## Pools
@@ -435,6 +434,8 @@ use Sie\Input;          // ✓ better still — just import it
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+
+If you are moving between versions, [UPGRADE](UPGRADE.md) lists the changes that need an edit on your side.
 
 ## Contributing
 

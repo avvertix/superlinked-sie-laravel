@@ -62,22 +62,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Model Catalog Cache
-    |--------------------------------------------------------------------------
-    |
-    | The list of models a cluster serves changes when it is redeployed, not per
-    | request, so it is cached. Set the ttl to 0 to always read it live, or call
-    | SIE::models(fresh: true) for a single bypass.
-    |
-    */
-
-    'catalog' => [
-        'store' => env('SIE_CATALOG_CACHE_STORE'),
-        'ttl' => (int) env('SIE_CATALOG_CACHE_TTL', 3600),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Laravel AI Bridge
     |--------------------------------------------------------------------------
     |

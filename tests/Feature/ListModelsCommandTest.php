@@ -108,20 +108,6 @@ it('says so when the cluster serves nothing', function () {
         ->assertSuccessful();
 });
 
-it('bypasses the catalog cache when asked', function () {
-    config()->set('superlinked-sie-laravel.catalog.ttl', 3600);
-
-    $catalog = MockResponse::make(['models' => [['name' => 'a', 'inputs' => ['text'], 'outputs' => ['dense']]]], 200);
-    $mock = MockClient::global([$catalog, $catalog]);
-
-    $this->artisan('sie:models')->assertSuccessful();
-    $mock->assertSentCount(1);
-
-    // A second plain run would be served from the cache; --fresh must not be.
-    $this->artisan('sie:models', ['--fresh' => true])->assertSuccessful();
-    $mock->assertSentCount(2);
-});
-
 it('filters models by name', function () {
     // A real cluster serves ~150 models, so finding one is the point.
     SIE::fake([

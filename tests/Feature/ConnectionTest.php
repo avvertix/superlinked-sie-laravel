@@ -114,18 +114,12 @@ it('lists the model catalog', function () {
     expect($models->pluck('name')->all())->toBe(['BAAI/bge-m3', 'docling']);
 });
 
-it('caches the model catalog and bypasses the cache on demand', function () {
-    config()->set('superlinked-sie-laravel.catalog.ttl', 3600);
-
+it('reads the model catalog live on every call', function () {
     $catalog = MockResponse::make(['models' => [['name' => 'BAAI/bge-m3']]], 200);
-    $mock = MockClient::global([$catalog, $catalog, $catalog]);
+    $mock = MockClient::global([$catalog, $catalog]);
 
     SIE::models();
     SIE::models();
-
-    $mock->assertSentCount(1);
-
-    SIE::models(fresh: true);
 
     $mock->assertSentCount(2);
 });

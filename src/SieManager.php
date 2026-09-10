@@ -94,9 +94,9 @@ final class SieManager extends MultipleInstanceManager
     /**
      * @return Collection<int, ModelInfo>
      */
-    public function models(bool $fresh = false): Collection
+    public function models(): Collection
     {
-        return $this->connection()->models($fresh);
+        return $this->connection()->models();
     }
 
     public function capacity(?string $gpu = null): CapacityInfo

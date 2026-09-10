@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Sie\Client\Data;
 
+use JsonSerializable;
+
 /**
  * Advertised model capabilities (mirrors the gateway's `capabilities` object
  * on each `/v1/models` entry). These flags mean the model *supports* a
  * task — not a precision-independent quality guarantee.
  */
-final class ModelCapabilities
+final class ModelCapabilities implements JsonSerializable
 {
     /**
      * @param  ?list<string>  $grammar
@@ -40,5 +42,32 @@ final class ModelCapabilities
             sql: $data['sql'] ?? null,
             guard: $data['guard'] ?? null,
         );
+    }
+
+    /**
+     * The wire shape this was built from, so `fromArray(toArray())` round-trips.
+     * The keys stay in the gateway's snake_case for that reason.
+     *
+     * @return array{grammar: ?list<string>, tools: ?bool, lora_adapters: ?list<string>, profile_lora_adapters: ?array<string, list<string>>, code: ?bool, sql: ?bool, guard: ?bool}
+     */
+    public function toArray(): array
+    {
+        return [
+            'grammar' => $this->grammar,
+            'tools' => $this->tools,
+            'lora_adapters' => $this->loraAdapters,
+            'profile_lora_adapters' => $this->profileLoraAdapters,
+            'code' => $this->code,
+            'sql' => $this->sql,
+            'guard' => $this->guard,
+        ];
+    }
+
+    /**
+     * @return array{grammar: ?list<string>, tools: ?bool, lora_adapters: ?list<string>, profile_lora_adapters: ?array<string, list<string>>, code: ?bool, sql: ?bool, guard: ?bool}
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

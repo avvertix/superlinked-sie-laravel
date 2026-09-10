@@ -28,8 +28,6 @@ beforeEach(function () {
         'key' => Env::get('SIE_KEY'),
         'timeout' => 120,
     ]);
-
-    config()->set('superlinked-sie-laravel.catalog.ttl', 0);
 });
 
 it('lists the model catalog with declared inputs and outputs', function () {

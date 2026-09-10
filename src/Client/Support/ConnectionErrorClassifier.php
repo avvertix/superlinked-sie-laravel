@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sie\Client\Support;
 
-use GuzzleHttp\Exception\ConnectException;
+use Psr\Http\Client\NetworkExceptionInterface;
 use Throwable;
 
 /**
@@ -13,10 +13,12 @@ use Throwable;
  *
  * Python inspects the wrapped `OSError.errno` against a fixed transient set
  * and treats SSL errors as never transient, defaulting to "retryable" when
- * unclassifiable. Guzzle's curl handler exposes a comparable `errno` via
- * `ConnectException::getHandlerContext()['errno']`; we mirror the same
- * fail-open default when that context isn't available (e.g. a non-curl
- * handler, or a handler that doesn't populate it).
+ * unclassifiable. Guzzle's curl handler exposes a comparable `errno`: Guzzle 7
+ * through `ConnectException::getHandlerContext()['errno']`, and Guzzle 8 —
+ * which removed the handler context in favour of finer-grained exception
+ * classes — through the `cURL error <errno>:` prefix both majors put on the
+ * exception message. We mirror the same fail-open default when neither is
+ * available (e.g. a non-curl handler, or a handler that doesn't populate them).
  */
 final class ConnectionErrorClassifier
 {
@@ -49,12 +51,21 @@ final class ConnectionErrorClassifier
 
     private static function curlErrno(Throwable $exception): ?int
     {
-        if (! $exception instanceof ConnectException) {
+        if (! $exception instanceof NetworkExceptionInterface) {
             return null;
         }
 
-        $errno = $exception->getHandlerContext()['errno'] ?? null;
+        if (method_exists($exception, 'getHandlerContext')) {
+            $context = $exception->getHandlerContext();
+            $errno = is_array($context) ? ($context['errno'] ?? null) : null;
 
-        return is_int($errno) ? $errno : null;
+            if (is_int($errno)) {
+                return $errno;
+            }
+        }
+
+        return preg_match('/^cURL error (\d+):/', $exception->getMessage(), $matches) === 1
+            ? (int) $matches[1]
+            : null;
     }
 }

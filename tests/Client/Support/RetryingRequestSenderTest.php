@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\Request as Psr7Request;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 use Sie\Client\Connectors\SieConnector;
@@ -12,9 +13,11 @@ use Sie\Client\Exceptions\ProvisioningException;
 use Sie\Client\Exceptions\RequestException;
 use Sie\Client\Exceptions\ResourceExhaustedException;
 use Sie\Client\Exceptions\ServerException;
+use Sie\Client\Exceptions\SieConnectionException;
 use Sie\Client\Support\RetryingRequestSender;
 use Sie\Client\Support\RetryPolicy;
 use Sie\Tests\Client\Fixtures\FakeClock;
+use Sie\Tests\Client\Fixtures\FakeNetworkException;
 use Sie\Tests\Client\Fixtures\PingRequest;
 use Sie\Tests\Client\Fixtures\RecordingSleeper;
 
@@ -185,6 +188,37 @@ it('treats a 504 as terminal when the policy disallows retrying it', function ()
         ->toThrow(ServerException::class);
 
     $mock->assertSentCount(1);
+});
+
+it('retries a no-response network failure that Saloon leaves unwrapped, then succeeds', function () {
+    $connector = new SieConnector('https://example.test');
+    $mock = new MockClient([
+        fn () => throw new FakeNetworkException('cURL error 56: Recv failure', new Psr7Request('POST', 'https://example.test')),
+        MockResponse::make(['ok' => true], 200),
+    ]);
+    $connector->withMockClient($mock);
+
+    $clock = new FakeClock;
+    $sleeper = new RecordingSleeper($clock);
+    $sender = new RetryingRequestSender($connector, $clock, $sleeper);
+
+    $response = $sender->send(requestFactory(), new RetryPolicy, 'bge-m3', null, true, 30.0);
+
+    expect($response->status())->toBe(200);
+    expect($sleeper->sleeps)->toHaveCount(1);
+});
+
+it('raises SieConnectionException for a network failure the policy will not retry', function () {
+    $connector = new SieConnector('https://example.test');
+    $mock = new MockClient([
+        fn () => throw new FakeNetworkException('cURL error 56: Recv failure', new Psr7Request('POST', 'https://example.test')),
+    ]);
+    $connector->withMockClient($mock);
+
+    $sender = new RetryingRequestSender($connector, new FakeClock, new RecordingSleeper);
+
+    expect(fn () => $sender->send(requestFactory(), new RetryPolicy(retryMidFlightTransportErrors: false), 'llama-3', null, true, 30.0))
+        ->toThrow(SieConnectionException::class, 'Recv failure');
 });
 
 it('never retries a plain 4xx/5xx that carries none of the known retry codes', function () {

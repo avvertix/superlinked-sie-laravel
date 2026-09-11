@@ -123,3 +123,23 @@ _Avoid_: scaling, cold start, warmup (see **Warmup**)
 Deliberately loading a model onto a worker ahead of real traffic, so the first real request
 does not pay **Provisioning** cost.
 _Avoid_: preload, prime, cache
+
+### Testing
+
+**Fake**:
+The local stand-in that answers every request an application would send to a **Connection**,
+installed by `SIE::fake()`. It is the whole double, not one model's part of it.
+_Avoid_: mock, stub, double, FakeSie as the spoken term
+
+**Answer**:
+What a **Fake** returns for one **Capability** of one **Model** — a vector width, a set of
+scores, an extract item, some generated text, or a failure. A model may carry an answer per
+capability; a **Fake** without one for the capability asked refuses rather than inventing.
+_Avoid_: response (reserved for the wire), result (reserved for what a caller gets back),
+canned value
+
+**Recording**:
+A real cluster response captured on first run and replayed thereafter, so an **Answer** nobody
+wants to hand-write comes from the cluster itself. Distinct from an **Answer**, which the test
+states.
+_Avoid_: fixture as the spoken term, snapshot, cassette, VCR

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Sie\Client\Data\EncodeResult;
 use Sie\Client\Data\ModelInfo;
-use Sie\Client\Exceptions\ModelLoadFailedException;
 
 /*
  * The test that would have caught the base64 defect (Step 1).
@@ -69,21 +68,13 @@ it('extracts entities from a document input', function () {
 
     $model = firstModelMatching(
         $client,
-        ['docling:ocr'],
+        ['docling:ocr', 'docling'],
         static fn (ModelInfo $m): bool => in_array('document', $m->inputs ?? [], true),
     );
 
     $pdf = new SplFileInfo(__DIR__.'/../Fixtures/sample.pdf');
 
-    // try {
     $result = $client->extract($model, ['document' => $pdf]);
-    // } catch (ModelLoadFailedException $e) {
-    //     // Reaching model loading already proves the point of this test: the
-    //     // base64 document payload cleared the server's body validation, which
-    //     // is where an integer-array `data` is rejected with 400 INVALID_INPUT.
-    //     // Whether this deployment can actually load the model is not our bug.
-    //     // test()->markTestSkipped("'{$model}' cannot load on this instance: {$e->getMessage()}");
-    // }
 
     // The assertion that matters is that this did not 400 — the extracted
     // content itself depends on which OCR recogniser the instance serves.

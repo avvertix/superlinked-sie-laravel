@@ -1,0 +1,8 @@
+{
+    "statusCode": 200,
+    "headers": {
+        "Content-Type": "application/json"
+    },
+    "data": "{\"model\":\"docling\",\"items\":[{\"classifications\":[],\"entities\":[],\"objects\":[],\"relations\":[],\"data\":{\"markdown\":\"## This is a test PDF\\n\\nThis is a paragraph\",\"text\":\"This is a test PDF\\n\\nThis is a paragraph\"}}]}",
+    "context": []
+}

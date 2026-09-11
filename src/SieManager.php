@@ -12,8 +12,11 @@ use RuntimeException;
 use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\CapacityInfo;
 use Sie\Client\Data\ModelInfo;
+use Sie\Client\Support\Clock;
+use Sie\Client\Support\Sleeper;
 use Sie\Testing\FakeModel;
 use Sie\Testing\FakeSie;
+use Sie\Testing\FakeTime;
 
 /**
  * Resolves named **Connections**.
@@ -130,7 +133,22 @@ final class SieManager extends MultipleInstanceManager
      */
     public function fake(array $models = []): FakeSie
     {
-        return $this->fake = new FakeSie($models);
+        // A faked 503 is retried until the provision-timeout budget is spent.
+        // FakeTime is both the clock and the sleeper the ladder is given, so the
+        // retries are instant and the budget is still spent. Laravel's Sleep is
+        // deliberately left alone: faking it here would reset the sequence and
+        // callbacks an application had registered there for its own code.
+        $time = new FakeTime;
+        $this->app->instance(Clock::class, $time);
+        $this->app->instance(Sleeper::class, $time);
+
+        // Connections memoise their client, and one built before fake() would
+        // still hold the real clock.
+        foreach (array_keys($this->instances) as $name) {
+            $this->forgetInstance($name);
+        }
+
+        return $this->fake = new FakeSie($models, $time);
     }
 
     public function assertEncoded(string $model, ?Closure $callback = null): void
@@ -151,6 +169,16 @@ final class SieManager extends MultipleInstanceManager
     public function assertGenerated(string $model, ?Closure $callback = null): void
     {
         $this->faked()->assertGenerated($model, $callback);
+    }
+
+    public function assertChatted(string $model, ?Closure $callback = null): void
+    {
+        $this->faked()->assertChatted($model, $callback);
+    }
+
+    public function assertSlept(int $times = 1): void
+    {
+        $this->faked()->assertSlept($times);
     }
 
     public function assertNothingSent(): void

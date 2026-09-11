@@ -17,8 +17,10 @@ use Sie\Client\Data\GenerateResult;
 use Sie\Client\Data\ModelInfo;
 use Sie\Client\Data\ScoreResult;
 use Sie\Client\Exceptions\RequestException;
+use Sie\Client\Exceptions\ServerException;
 use Sie\Client\SieClient;
 use Sie\Client\Support\ErrorCodes;
+use Sie\Client\Support\RetryingRequestSender;
 use Sie\Exceptions\RequestTooLargeException;
 use Sie\Exceptions\UnsupportedCapabilityException;
 use Sie\Results\EncodeResults;
@@ -478,11 +480,8 @@ final class PendingRequest
      * Run a terminal call, translating the cluster's "wrong kind of model"
      * rejection into a typed exception.
      *
-     * SIE answers a capability mismatch with a generic `INVALID_INPUT` 400
-     * whose message carries the real reason — "Model 'docling' does not support
-     * output types: {'dense'}", "Model 'BAAI/bge-m3' does not support
-     * extraction". Since we deliberately do not preflight against the model
-     * catalog (ADR 0003), this is where that mistake becomes legible.
+     * Since we deliberately do not preflight against the model catalog
+     * (ADR 0003), this is where that mistake becomes legible.
      *
      * @template TReturn
      *
@@ -493,13 +492,51 @@ final class PendingRequest
     {
         try {
             return $callback();
-        } catch (RequestException $exception) {
-            if ($exception->errorCode === 'INVALID_INPUT' && str_contains($exception->getMessage(), 'does not support')) {
-                throw new UnsupportedCapabilityException($exception->getMessage(), $model, $capability);
+        } catch (RequestException|ServerException $exception) {
+            if (self::isCapabilityMismatch($exception)) {
+                throw new UnsupportedCapabilityException(
+                    "Model '{$model}' cannot serve {$capability}(): {$exception->getMessage()}",
+                    $model,
+                    $capability,
+                    previous: $exception,
+                );
             }
 
             throw $exception;
         }
+    }
+
+    /**
+     * Does this rejection mean "that model does not serve this capability"?
+     *
+     * The cluster has no dedicated code for it, and both codes below are shared
+     * with unrelated failures, so the message is what decides:
+     *
+     * - `400 INVALID_INPUT` — "Model 'docling' does not support output types:
+     *   {'dense'}", raised when the model is routable but rejects the request.
+     * - `503 QUEUE_UNAVAILABLE` — `missing rate for model="docling",
+     *   profile="default", operation="encode", region="us"`. This is the
+     *   gateway's terminal "the rate book cannot price this, so it will not be
+     *   run" answer (`ESTIMATE_UNROUTABLE_ERROR_CODES` in the Python SDK); it
+     *   is not retried and carries no `Retry-After`. A missing rate for a
+     *   (model, profile, operation, region) tuple is how an operation the model
+     *   does not serve surfaces — though strictly it says the tuple is
+     *   unpriced, which a capable-but-unpriced model would report identically.
+     *   The same code also carries reasons that are about the input rather than
+     *   the identity ("page pricing requires a non-empty image or document
+     *   input"), hence matching the `missing rate` prefix rather than the code.
+     *
+     * The retryable 503s ({@see RetryingRequestSender} consumes them first)
+     * never reach here: `PROVISIONING`, `MODEL_LOADING`, `LORA_LOADING` and
+     * `RESOURCE_EXHAUSTED`.
+     */
+    private static function isCapabilityMismatch(RequestException|ServerException $exception): bool
+    {
+        return match ($exception->errorCode) {
+            'INVALID_INPUT' => str_contains($exception->getMessage(), 'does not support'),
+            'QUEUE_UNAVAILABLE' => str_starts_with($exception->getMessage(), 'missing rate for model='),
+            default => false,
+        };
     }
 
     /**

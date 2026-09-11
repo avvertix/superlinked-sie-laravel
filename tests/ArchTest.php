@@ -13,3 +13,7 @@ arch('it will not use dd(), ddd(), env(), or exit()')
 arch('the package source declares strict types')
     ->expect('Sie')
     ->toUseStrictTypes();
+
+arch('the client stays usable as a plain PHP SDK')
+    ->expect('Sie\Client')
+    ->not->toUse('Illuminate');

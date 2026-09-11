@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Storage;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 use Sie\Client\Exceptions\RequestException;
+use Sie\Client\Exceptions\ServerException;
 use Sie\Client\Requests\Encode\EncodeRequest;
 use Sie\Client\Requests\Extract\ExtractRequest;
 use Sie\Client\Requests\Score\ScoreRequest;
@@ -200,6 +201,38 @@ it('translates the cluster rejecting a capability into a typed exception', funct
 
     SIE::model('docling')->encode('Hello world');
 })->throws(UnsupportedCapabilityException::class, 'does not support output types');
+
+it('translates a model with no queue for the operation into a typed exception', function () {
+    MockClient::global([
+        MockResponse::make([
+            'detail' => [
+                'code' => 'QUEUE_UNAVAILABLE',
+                'message' => 'missing rate for model="docling", profile="default", operation="encode", region="us"',
+            ],
+        ], 503),
+    ]);
+
+    expect(fn () => SIE::model('docling')->encode('Hello world'))
+        ->toThrow(function (UnsupportedCapabilityException $exception) {
+            expect($exception->model)->toBe('docling');
+            expect($exception->capability)->toBe('encode');
+            expect($exception->getMessage())->toContain('missing rate for model="docling"');
+            expect($exception->getPrevious())->toBeInstanceOf(ServerException::class);
+        });
+});
+
+it('leaves a queue rejection that is not about the capability as a server error', function () {
+    MockClient::global([
+        MockResponse::make([
+            'detail' => [
+                'code' => 'QUEUE_UNAVAILABLE',
+                'message' => 'page pricing requires a non-empty image or document input',
+            ],
+        ], 503),
+    ]);
+
+    SIE::model('docling')->extract('Hello world');
+})->throws(ServerException::class, 'page pricing');
 
 it('leaves other request errors as they are', function () {
     MockClient::global([

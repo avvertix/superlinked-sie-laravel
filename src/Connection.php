@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Sie;
 
+use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
 use RuntimeException;
 use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\CapacityInfo;
 use Sie\Client\Data\ModelInfo;
 use Sie\Client\SieClient;
+use Sie\Client\Support\Clock;
+use Sie\Client\Support\Sleeper;
 use Sie\Client\Support\WireFormat;
 
 /**
@@ -33,11 +36,15 @@ final class Connection
 
     public function client(): SieClient
     {
+        $container = Container::getInstance();
+
         return $this->client ??= new SieClient(
             baseUrl: $this->url(),
             timeoutS: (float) ($this->config['timeout'] ?? 900),
             apiKey: is_string($this->config['key'] ?? null) ? $this->config['key'] : null,
             gpu: $this->defaultRouting(),
+            clock: $container->make(Clock::class),
+            sleeper: $container->make(Sleeper::class),
             format: $this->format(),
         );
     }

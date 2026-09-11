@@ -9,6 +9,9 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Ai\AiManager;
 use Sie\Ai\SieProvider;
+use Sie\Client\Support\Clock;
+use Sie\Client\Support\Sleeper;
+use Sie\Client\Support\SystemClock;
 use Sie\Console\Commands\ListModelsCommand;
 
 class SuperlinkedSieLaravelServiceProvider extends ServiceProvider
@@ -21,6 +24,11 @@ class SuperlinkedSieLaravelServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/superlinked-sie-laravel.php', 'superlinked-sie-laravel');
 
         $this->app->singleton(SieManager::class, fn (Application $app): SieManager => new SieManager($app));
+
+        // Bound rather than constructed inside the client so SIE::fake() can
+        // swap in a time source that makes the retry ladder instant.
+        $this->app->bind(Clock::class, SystemClock::class);
+        $this->app->bind(Sleeper::class, LaravelSleeper::class);
     }
 
     /**

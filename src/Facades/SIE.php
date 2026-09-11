@@ -24,6 +24,8 @@ use Sie\SieManager;
  * @method static void assertScored(string $model, ?\Closure $callback = null)
  * @method static void assertExtracted(string $model, ?\Closure $callback = null)
  * @method static void assertGenerated(string $model, ?\Closure $callback = null)
+ * @method static void assertChatted(string $model, ?\Closure $callback = null)
+ * @method static void assertSlept(int $times = 1)
  * @method static void assertNothingSent()
  * @method static void assertSentCount(int $count)
  *

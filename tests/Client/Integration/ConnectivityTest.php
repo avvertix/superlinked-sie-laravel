@@ -24,10 +24,18 @@ it('reads cluster capacity from /health', function () {
 it('fetches a single model in the native shape', function () {
     // /v1/models/{model} returns the native envelope: name, dims, inputs,
     // outputs, loaded, capabilities.
-    $model = sieClient()->getModel('NeuML/gliner-bert-tiny');
+    $client = sieClient();
+
+    $name = firstModelMatching(
+        $client,
+        ['NeuML/gliner-bert-tiny', 'urchade/gliner_multi-v2.1'],
+        static fn (ModelInfo $m): bool => in_array('text', $m->inputs ?? [], true) && in_array('json', $m->outputs ?? [], true),
+    );
+
+    $model = $client->getModel($name);
 
     expect($model)->toBeInstanceOf(ModelInfo::class)
-        ->and($model->name)->toBe('NeuML/gliner-bert-tiny')
+        ->and($model->name)->toBe($name)
         ->and($model->inputs)->toContain('text')
         ->and($model->outputs)->toContain('json');
 });

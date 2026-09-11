@@ -1,0 +1,19 @@
+# docker-compose.yml
+services:
+  sie:
+    image: ghcr.io/superlinked/sie-server:v0.7.1-cpu-default
+    ports:
+      - "8080:8080"
+    ## Uncomment to persist the models
+    # volumes:
+    #   - ./sie-hf-cache:/app/.cache/huggingface
+    environment:
+      - SIE_DEVICE=cpu
+      - SIE_MAX_BATCH_REQUESTS=128
+      - SIE_PRELOAD_MODELS=docling,urchade/gliner_multi-v2.1,docling:ocr,NeuML/gliner-bert-tiny,BAAI/bge-m3,Marqo/marqo-fashionSigLIP
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

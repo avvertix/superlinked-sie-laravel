@@ -141,7 +141,7 @@ SIE::model('some-llm')->maxNewTokens(256)->temperature(0.2)->generate('Summarise
 
 // Streaming returns a single-pass LazyCollection of chunks.
 SIE::model('some-llm')->stream('Summarise: …')->each(function ($chunk) {
-    echo $chunk->text;
+    echo $chunk->textDelta;
 });
 ```
 
@@ -362,7 +362,70 @@ SIE::assertSentCount(1);
 SIE::assertNothingSent();
 ```
 
-Models you do not configure still answer, with 8-dimensional vectors. For tests that care about the exact wire format, drop down to Saloon's `MockClient` with fixtures.
+`assertScored()`, `assertExtracted()`, `assertGenerated()` and `assertChatted()` work the same way. Generate and chat share one answer but keep separate assertions, so a test cannot pass against the route it did not mean.
+
+A `FakeModel` holds an answer per capability, because a real model serves more than one — `BAAI/bge-m3` both encodes and scores. Start with a static constructor and chain `and…()` for the rest; each link returns a new instance, so a fake can be shared between tests.
+
+```php
+SIE::fake([
+    'BAAI/bge-m3' => FakeModel::dense(1024)->andScores(['doc-b' => 0.9, 'doc-a' => 0.2]),
+]);
+```
+
+The faked catalog reports the outputs those answers imply — `['dense', 'score']` here. Use `->declaring(['dense', 'sparse'])` when the model really declares an output the fake does not answer.
+
+A model you configure answers only what you gave it an answer for: asking a faked extractor to encode raises rather than returning a plausible vector. Models you do not configure at all still answer everything, with 8-dimensional vectors — so a bare `SIE::fake()` needs no catalog. Routes the fake does not serve, such as pools, raise too; reach for Saloon's `MockClient` there.
+
+### Extraction beyond entities
+
+`FakeModel::entities()` gives every input the same answer. When the answer varies per input — or is not entities at all — use `FakeModel::extracting()`, which returns the extract item itself, so `data`, `error`, `relations`, `classifications` and `objects` are all reachable:
+
+```php
+SIE::fake([
+    'docling' => FakeModel::extracting(fn (array $item) => [
+        'data' => ['markdown' => '# Invoice', 'text' => 'Invoice'],
+    ]),
+
+    'urchade/gliner_multi-v2.1' => FakeModel::extracting(fn (array $item) => $item['text'] === ''
+        ? ['error' => ['code' => 'INTERNAL_ERROR', 'message' => 'tokenizer failed']]
+        : ['entities' => [['text' => 'Ada', 'label' => 'person', 'score' => 0.99, 'start' => 0, 'end' => 3]]]),
+]);
+```
+
+The callback receives one input item in its wire shape and its `id` is echoed back for you. That makes the mixed-success branch testable: a batch where one item carries `error` and the rest carry results is what `hasFailures()`, `failed()` and `throwIfAnyFailed()` exist for.
+
+### Failures and retries
+
+A faked failure is answered at the wire — a status and an error envelope — so your code meets the same typed exception the cluster would produce, through the package's own error handling:
+
+```php
+SIE::fake(['BAAI/bge-m3' => FakeModel::failing(400, 'INVALID_INPUT', 'items must not be empty')]);
+```
+
+To exercise a retry, fail a fixed number of times and then answer normally. Retries are instant: the double is itself the clock and the sleeper the retry ladder was given, so nothing waits and the provision-timeout budget is still spent. Laravel's `Sleep` is left alone, so a `Sleep::fake()` your own code depends on keeps its sequence.
+
+```php
+SIE::fake(['BAAI/bge-m3' => FakeModel::dense(1024)->andFailingTimes(1, 503, 'PROVISIONING')]);
+
+SIE::model('BAAI/bge-m3')->encode('Hello world');   // waits, retries, succeeds
+
+SIE::assertSlept(1);      // the ladder waited once
+SIE::assertSentCount(2);  // the rejected attempt and the retry
+```
+
+`SIE::fake([...])->failNext(503, 'PROVISIONING')` does the same for the next request whatever model it is for.
+
+### Recording a real response
+
+Some answers are not worth writing by hand — a parsed document, or any payload whose shape belongs to the model rather than to this package. Record one instead:
+
+```php
+SIE::fake(['docling' => FakeModel::recording('docling-pdf-simple')]);
+```
+
+The first run sends the request for real and Saloon stores the response under `tests/Fixtures/Saloon`; every run after that replays the file. Three things to know: the recording run needs a reachable `SIE_ENDPOINT` and credentials, so record deliberately; set the connection's `format` to `json` for that run, or the fixture stores base64-encoded msgpack that nobody can read in a diff; and refreshing a recording means deleting the file.
+
+For tests that care about the exact wire format, drop down to Saloon's `MockClient` with fixtures directly — but call `MockClient::destroyGlobal()` before `SIE::fake()` if you have installed a global mock of your own, since `SIE::fake()` refuses to take one over.
 
 ## Laravel AI
 

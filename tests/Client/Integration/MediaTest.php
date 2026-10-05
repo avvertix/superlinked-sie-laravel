@@ -16,13 +16,18 @@ use Sie\Client\Data\ModelInfo;
  * Dispatches real inference, so it is opt-in via SIE_RUN_BILLABLE=1.
  */
 
-/** A minimal but structurally valid 1x1 JPEG, so the server has real bytes to decode. */
+/**
+ * A minimal 8x8 RGB JPEG, so the server has real bytes to decode. It must have
+ * three colour components: image processors normalise with a 3-value RGB mean,
+ * and a grayscale JPEG fails with "mean must have 1 elements if it is an
+ * iterable, got 3".
+ */
 function tinyJpeg(): string
 {
     return base64_decode(
-        '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a'
-        .'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA'
-        .'AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==',
+        '/9j/4AAQSkZJRgABAQEAYABgAAD//gA7Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcgSlBFRyB2ODApLCBxdWFsaXR5ID0gOTAK'
+        .'/9sAQwADAgIDAgIDAwMDBAMDBAUIBQUEBAUKBwcGCAwKDAwLCgsLDQ4SEA0OEQ4LCxAWEBETFBUVFQwPFxgWFBgSFBUU/9sAQwEDBAQFBAUJBQUJFA0LDRQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU'
+        .'/8AAEQgACAAIAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A5KiiivxQ/qg//9k=',
         true,
     );
 }
@@ -34,7 +39,7 @@ it('encodes an image input', function () {
 
     $model = firstModelMatching(
         $client,
-        ['Marqo/marqo-fashionSigLIP', 'Qwen/Qwen3-VL-Embedding-2B'],
+        ['Marqo/marqo-fashionSigLIP', 'Qwen/Qwen3-VL-Embedding-2B', 'google/siglip-so400m-patch14-384'],
         static fn (ModelInfo $m): bool => in_array('image', $m->inputs ?? [], true),
     );
 

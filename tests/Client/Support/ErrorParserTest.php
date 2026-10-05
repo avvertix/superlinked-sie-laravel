@@ -89,3 +89,18 @@ it('getRetryAfter parses the Retry-After header', function () {
 
     expect(ErrorParser::getRetryAfter($response))->toBe(12.0);
 });
+
+it('handleError includes per-item failures from an all_items_failed envelope', function () {
+    $response = sendMocked(MockResponse::make([
+        'error' => 'all_items_failed',
+        'details' => [
+            ['item_index' => 0, 'error' => 'mean must have 1 elements if it is an iterable, got 3', 'code' => 'inference_error'],
+            ['item_index' => 2, 'error' => 'bad pixels', 'code' => 'inference_error'],
+        ],
+    ], 400));
+
+    expect(fn () => ErrorParser::handleError($response))->toThrow(
+        RequestException::class,
+        'all_items_failed (item 0: mean must have 1 elements if it is an iterable, got 3; item 2: bad pixels)',
+    );
+});

@@ -31,6 +31,7 @@
         </testsuite>
         <testsuite name="Integration">
             <directory>tests/Client/Integration</directory>
+            <directory>tests/Feature/Integration</directory>
         </testsuite>
     </testsuites>
     <source>

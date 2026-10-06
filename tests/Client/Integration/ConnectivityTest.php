@@ -56,8 +56,6 @@ it('lists models', function () {
 });
 
 it('attaches the gateway request id to a real encode result', function () {
-    requiresBillableCalls();
-
     // Proves case-insensitive header lookup against the real wire: the gateway
     // sends `x-sie-request-id` lowercased over HTTP/1.1.
     $result = sieClient()->encode('BAAI/bge-m3', ['text' => 'metadata probe']);
@@ -65,4 +63,4 @@ it('attaches the gateway request id to a real encode result', function () {
     expect($result->request)->not->toBeNull()
         ->and($result->request->id)->toBeString()
         ->and($result->request->id)->not->toBeEmpty();
-})->group('billable')->skip('Require a SIE gateway');
+})->skip('Require a SIE gateway');

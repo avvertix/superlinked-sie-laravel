@@ -12,8 +12,6 @@ use Sie\Client\Data\ModelInfo;
  * proxies the body opaquely to sie_server, which decodes with msgspec, and
  * msgspec rejects an array for a `bytes` field with
  * `400 INVALID_INPUT: Expected \`bytes\`, got \`array\` - at $.…data`.
- *
- * Dispatches real inference, so it is opt-in via SIE_RUN_BILLABLE=1.
  */
 
 /**
@@ -33,8 +31,6 @@ function tinyJpeg(): string
 }
 
 it('encodes an image input', function () {
-    requiresBillableCalls();
-
     $client = sieClient();
 
     $model = firstModelMatching(
@@ -48,11 +44,9 @@ it('encodes an image input', function () {
     expect($result)->toBeInstanceOf(EncodeResult::class)
         ->and($result->dense)->toBeArray()
         ->and($result->dense)->not->toBeEmpty();
-})->group('billable');
+});
 
 it('preserves batch order and returns exactly one result per input', function () {
-    requiresBillableCalls();
-
     // Guards the Step 2 contract from the client side: encode is positional, so
     // a dropped item must never silently shift the remaining results.
     $results = sieClient()->encode('BAAI/bge-m3', [
@@ -64,11 +58,9 @@ it('preserves batch order and returns exactly one result per input', function ()
     expect($results)->toHaveCount(3)
         ->and(array_map(static fn (EncodeResult $r): ?string => $r->id, $results))
         ->toBe(['a', 'b', 'c']);
-})->group('billable');
+});
 
 it('extracts entities from a document input', function () {
-    requiresBillableCalls();
-
     $client = sieClient();
 
     $model = firstModelMatching(
@@ -84,4 +76,4 @@ it('extracts entities from a document input', function () {
     // The assertion that matters is that this did not 400 — the extracted
     // content itself depends on which OCR recogniser the instance serves.
     expect($result->entities)->toBeArray();
-})->group('billable');
+});

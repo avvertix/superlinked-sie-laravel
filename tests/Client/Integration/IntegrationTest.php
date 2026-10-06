@@ -11,8 +11,6 @@ use Sie\Client\Data\ExtractResult;
  */
 
 it('extracts entities against the live instance', function () {
-    requiresBillableCalls();
-
     $result = sieClient()->extract(
         'urchade/gliner_multi-v2.1',
         ['text' => 'Paris is the capital of France.'],
@@ -21,4 +19,4 @@ it('extracts entities against the live instance', function () {
 
     expect($result)->toBeInstanceOf(ExtractResult::class)
         ->and($result->entities)->not->toBeEmpty();
-})->group('billable');
+});

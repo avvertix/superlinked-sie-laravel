@@ -24,8 +24,10 @@ function sendMocked(MockResponse $mockResponse): Response
 /**
  * A client pointed at the live instance from `.env` / the environment.
  *
- * Skips the calling test when `SIE_ENDPOINT` is absent, so a fresh clone with
- * no credentials still runs green.
+ * Every test in the Integration suite (tests/Client/Integration) goes through
+ * this helper, so `SIE_ENDPOINT` (see tests/.env.example) is the only switch:
+ * the calling test is skipped when it is absent, and a fresh clone with no
+ * credentials still runs green.
  */
 function sieClient(float $timeoutS = 120.0): SieClient
 {
@@ -36,19 +38,6 @@ function sieClient(float $timeoutS = 120.0): SieClient
     }
 
     return new SieClient($endpoint, timeoutS: $timeoutS, apiKey: Env::get('SIE_KEY'));
-}
-
-/**
- * Skips the calling test unless billable inference is explicitly enabled.
- *
- * Read-only checks (`/health`, `/v1/models`) are free and always run; anything
- * that dispatches work to a GPU costs the account money, so it stays opt-in.
- */
-function requiresBillableCalls(): void
-{
-    // if (Env::get('SIE_RUN_BILLABLE') !== '1') {
-    //     test()->markTestSkipped('Set SIE_RUN_BILLABLE=1 to run tests that dispatch billable inference.');
-    // }
 }
 
 /**

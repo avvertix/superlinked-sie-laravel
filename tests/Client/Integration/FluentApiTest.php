@@ -11,7 +11,7 @@ use Sie\Input;
 use Sie\Tests\Client\Support\Env;
 
 /**
- * Exercises the fluent layer against a real cluster.
+ * Exercises the fluent layer (the SIE facade) against a real cluster.
  *
  * Skipped whenever SIE_ENDPOINT is absent, so a fresh clone with no credentials
  * still runs green.

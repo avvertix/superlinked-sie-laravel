@@ -87,6 +87,10 @@ return [
         'reranking' => [
             'model' => env('SIE_AI_RERANKING_MODEL', 'BAAI/bge-m3'),
         ],
+
+        'classification' => [
+            'model' => env('SIE_AI_CLASSIFICATION_MODEL', 'fastino/GLiNER2.5-Decide'),
+        ],
     ],
 
 ];

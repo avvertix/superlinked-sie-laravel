@@ -4,12 +4,27 @@ declare(strict_types=1);
 
 namespace Sie\Ai;
 
+use InvalidArgumentException;
+use Laravel\Ai\Classification\Boolean;
+use Laravel\Ai\Classification\Choice;
+use Laravel\Ai\Classification\Score;
+use Laravel\Ai\Contracts\Gateway\ClassificationGateway;
 use Laravel\Ai\Contracts\Gateway\EmbeddingGateway;
 use Laravel\Ai\Contracts\Gateway\RerankingGateway;
+use Laravel\Ai\Contracts\Providers\ClassificationProvider;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Laravel\Ai\Contracts\Providers\RerankingProvider;
+use Laravel\Ai\Contracts\Question;
+use Laravel\Ai\Responses\ClassificationResponse;
+use Laravel\Ai\Responses\Data\Answer;
+use Laravel\Ai\Responses\Data\BooleanAnswer;
+use Laravel\Ai\Responses\Data\ChoiceAnswer;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\RankedDocument;
+use Laravel\Ai\Responses\Data\RerankingUsage;
+use Laravel\Ai\Responses\Data\ScoreAnswer;
+use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\EmbeddingsResponse;
 use Laravel\Ai\Responses\RerankingResponse;
 use Sie\Client\Data\ScoreEntry;
@@ -22,7 +37,7 @@ use Sie\PendingRequest;
  * The contract has nowhere to carry SIE's instruction, query flag, profile,
  * pool, or GPU type, so they travel in `$providerOptions` and are applied here.
  */
-class SieGateway implements EmbeddingGateway, RerankingGateway
+class SieGateway implements ClassificationGateway, EmbeddingGateway, RerankingGateway
 {
     /**
      * @param  array<int, mixed>  $inputs
@@ -65,7 +80,7 @@ class SieGateway implements EmbeddingGateway, RerankingGateway
             $embeddings,
             // SIE's encode envelope reports timings, not token usage, so there
             // is no honest number to put here.
-            0,
+            new Usage,
             new Meta(provider: $provider->name(), model: $results->model() ?? $model),
         );
     }
@@ -79,6 +94,8 @@ class SieGateway implements EmbeddingGateway, RerankingGateway
         array $documents,
         string $query,
         ?int $limit = null,
+        int $timeout = 30,
+        array $providerOptions = [],
     ): RerankingResponse {
         $documents = array_values($documents);
 
@@ -110,14 +127,132 @@ class SieGateway implements EmbeddingGateway, RerankingGateway
         /** @var array<int, RankedDocument> $ranked */
         $ranked = $results->values()->all();
 
-        return new RerankingResponse($ranked, new Meta(provider: $provider->name(), model: $model));
+        // SIE's score envelope reports no token or billing figures, so usage stays empty.
+        return new RerankingResponse(
+            $ranked,
+            new RerankingUsage,
+            new Meta(provider: $provider->name(), model: $model),
+        );
+    }
+
+    /**
+     * Typed questions go to a decision model's `extract` capability, which
+     * answers them all about one record in a single call.
+     *
+     * @param  string|array<string, mixed>  $state
+     * @param  array<string, Question>  $questions
+     * @param  array<string, mixed>  $providerOptions
+     */
+    public function classify(
+        ClassificationProvider $provider,
+        string $model,
+        string|array $state,
+        array $questions,
+        int $timeout = 30,
+        array $providerOptions = [],
+    ): ClassificationResponse {
+        $schema = [];
+
+        foreach ($questions as $key => $question) {
+            $schema[$key] = $this->wireQuestion($question);
+        }
+
+        // A structured state has no wire shape of its own, so it is sent as JSON text.
+        $text = is_string($state) ? $state : json_encode($state, JSON_THROW_ON_ERROR);
+
+        $result = $this->request($provider, $model, $providerOptions)
+            ->schema($schema)
+            ->extract($text)
+            ->throwIfAnyFailed()
+            ->sole();
+
+        $answers = [];
+
+        foreach (array_keys($questions) as $key) {
+            $raw = $result->data[$key] ?? null;
+
+            if (! is_array($raw)) {
+                throw new InvalidArgumentException("SIE returned no answer for question [{$key}].");
+            }
+
+            $answers[$key] = $this->answer((string) $key, $raw);
+        }
+
+        return new ClassificationResponse(
+            $answers,
+            // Like embeddings, the extract envelope reports no token usage.
+            new TextUsage,
+            new Meta(provider: $provider->name(), model: $model),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function wireQuestion(Question $question): array
+    {
+        return match (true) {
+            $question instanceof Boolean => array_filter([
+                'type' => 'noul',
+                'instructions' => $question->instructions,
+                'criteria' => $question->criteria,
+            ], static fn (mixed $value): bool => $value !== null),
+            $question instanceof Choice => [
+                'type' => 'choice',
+                'instructions' => $question->instructions,
+                // SIE needs a description per option; fall back to the option's own name.
+                'criteria' => array_combine(
+                    array_keys($question->options),
+                    array_map(
+                        static fn (mixed $description, string|int $name): mixed => $description ?? (string) $name,
+                        $question->options,
+                        array_keys($question->options),
+                    ),
+                ),
+            ],
+            $question instanceof Score => [
+                'type' => 'score',
+                'instructions' => $question->instructions,
+                'criteria' => $question->levels,
+            ],
+            default => throw new InvalidArgumentException('SIE cannot answer a ['.$question::class.'] question.'),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private function answer(string $key, array $raw): Answer
+    {
+        $confidence = isset($raw['confidence']) ? (float) $raw['confidence'] : null;
+
+        if (($raw['type'] ?? null) === 'choice') {
+            /** @var array<string, float> $probabilities */
+            $probabilities = $raw['probabilities'] ?? [];
+
+            return new ChoiceAnswer((string) $raw['choice'], $probabilities, $confidence);
+        }
+
+        if (($raw['type'] ?? null) === 'score') {
+            // Levels are positional, so the wire's "0".."k-1" keys arrive as ints.
+            /** @var array<int, float> $probabilities */
+            $probabilities = $raw['probabilities'] ?? [];
+
+            return new ScoreAnswer((float) $raw['score'], $probabilities, $raw['legend'] ?? [], $confidence);
+        }
+
+        if (($raw['type'] ?? null) === 'noul') {
+            return new BooleanAnswer((float) $raw['noul']);
+        }
+
+        throw new InvalidArgumentException("SIE returned an unknown answer type for question [{$key}].");
     }
 
     /**
      * @param  array<string, mixed>  $providerOptions
      */
     private function request(
-        EmbeddingProvider|RerankingProvider $provider,
+        ClassificationProvider|EmbeddingProvider|RerankingProvider $provider,
         string $model,
         array $providerOptions,
     ): PendingRequest {

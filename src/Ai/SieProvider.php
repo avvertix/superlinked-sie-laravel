@@ -7,8 +7,10 @@ namespace Sie\Ai;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
+use Laravel\Ai\Contracts\Gateway\ClassificationGateway;
 use Laravel\Ai\Contracts\Gateway\EmbeddingGateway;
 use Laravel\Ai\Contracts\Gateway\RerankingGateway;
+use Laravel\Ai\Contracts\Providers\ClassificationProvider;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Laravel\Ai\Contracts\Providers\RerankingProvider;
 use Laravel\Ai\Providers\Concerns;
@@ -18,13 +20,15 @@ use Sie\Exceptions\MissingEmbeddingDimensionsException;
 /**
  * SIE as a `laravel/ai` provider.
  *
- * Embeddings and reranking only, and dense vectors only — `EmbeddingGateway`
+ * Embeddings, reranking and classification (typed decisions), and dense vectors only — `EmbeddingGateway`
  * has room for one representation and one width, so sparse and multivector
  * output stays on the native `SIE::` surface (see ADR 0002).
  */
-class SieProvider extends Provider implements EmbeddingProvider, RerankingProvider
+class SieProvider extends Provider implements ClassificationProvider, EmbeddingProvider, RerankingProvider
 {
+    use Concerns\Classifies;
     use Concerns\GeneratesEmbeddings;
+    use Concerns\HasClassificationGateway;
     use Concerns\HasEmbeddingGateway;
     use Concerns\HasRerankingGateway;
     use Concerns\Reranks;
@@ -62,6 +66,19 @@ class SieProvider extends Provider implements EmbeddingProvider, RerankingProvid
         $model = $this->packageConfig('ai.reranking.model', 'BAAI/bge-m3');
 
         return $model;
+    }
+
+    public function defaultClassificationModel(): string
+    {
+        /** @var string $model */
+        $model = $this->packageConfig('ai.classification.model', 'fastino/GLiNER2.5-Decide');
+
+        return $model;
+    }
+
+    public function classificationGateway(): ClassificationGateway
+    {
+        return $this->classificationGateway ??= new SieGateway;
     }
 
     public function embeddingGateway(): EmbeddingGateway

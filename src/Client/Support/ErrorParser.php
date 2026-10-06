@@ -122,7 +122,7 @@ final class ErrorParser
                 $code = $error['code'] ?? null;
                 $message = (string) ($error['message'] ?? $message);
             } else {
-                $message = (string) $error;
+                $message = self::withItemDetails((string) $error, $data['details'] ?? null);
             }
         } elseif (array_key_exists('detail', $data)) {
             $detail = $data['detail'];
@@ -158,6 +158,31 @@ final class ErrorParser
         }
 
         throw new RequestException($message, errorCode: $code, statusCode: $status, request: $request);
+    }
+
+    /**
+     * Append per-item failures to a bare error string, so an envelope like
+     * `{"error": "all_items_failed", "details": [{"item_index": 0, "error": "…"}]}`
+     * surfaces the cause rather than only its label.
+     */
+    private static function withItemDetails(string $message, mixed $details): string
+    {
+        if (! is_array($details)) {
+            return $message;
+        }
+
+        $items = [];
+
+        foreach ($details as $item) {
+            if (! is_array($item) || ! is_string($item['error'] ?? null)) {
+                continue;
+            }
+
+            $prefix = is_int($item['item_index'] ?? null) ? "item {$item['item_index']}: " : '';
+            $items[] = $prefix.$item['error'];
+        }
+
+        return $items === [] ? $message : $message.' ('.implode('; ', $items).')';
     }
 
     private static function stringHeader(Response $response, string $name): ?string

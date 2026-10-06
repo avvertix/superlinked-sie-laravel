@@ -6,7 +6,6 @@ namespace Sie;
 
 use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
-use RuntimeException;
 use Sie\Client\Connectors\SieConnector;
 use Sie\Client\Data\CapacityInfo;
 use Sie\Client\Data\ModelInfo;
@@ -14,6 +13,7 @@ use Sie\Client\SieClient;
 use Sie\Client\Support\Clock;
 use Sie\Client\Support\Sleeper;
 use Sie\Client\Support\WireFormat;
+use Sie\Exceptions\ConnectionNotConfiguredException;
 
 /**
  * One configured SIE endpoint — a URL plus its credentials.
@@ -68,6 +68,21 @@ final class Connection
     }
 
     /**
+     * Whether this connection has an endpoint to send requests to.
+     *
+     * An application that treats SIE as optional — enrichment that should be
+     * skipped rather than failed on a host with no cluster — asks this before
+     * building a request. Without a url, every request on this connection raises
+     * {@see ConnectionNotConfiguredException}.
+     */
+    public function isConfigured(): bool
+    {
+        $url = $this->config['url'] ?? null;
+
+        return is_string($url) && $url !== '';
+    }
+
+    /**
      * The wire format this connection speaks, msgpack unless configured
      * otherwise.
      */
@@ -116,17 +131,16 @@ final class Connection
         return new Pools($this->client());
     }
 
+    /**
+     * @throws ConnectionNotConfiguredException when the connection has no url.
+     */
     private function url(): string
     {
-        $url = $this->config['url'] ?? null;
-
-        if (! is_string($url) || $url === '') {
-            throw new RuntimeException(
-                "The [{$this->name}] SIE connection has no url. Set SIE_ENDPOINT, or the connection's url in config/superlinked-sie-laravel.php.",
-            );
+        if (! $this->isConfigured()) {
+            throw new ConnectionNotConfiguredException($this->name);
         }
 
-        return $url;
+        return $this->config['url'];
     }
 
     /**

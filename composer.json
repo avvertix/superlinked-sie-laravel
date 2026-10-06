@@ -81,7 +81,8 @@
             "vendor/bin/pest --type-coverage --min=99"
         ],
         "test:unit": [
-            "vendor/bin/pest --parallel"
+            "vendor/bin/pest --ci",
+            "vendor/bin/pest ./tests/ArchTest.php"
         ],
         "test": [
             "@analyse",

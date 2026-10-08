@@ -11,7 +11,7 @@ it('fetches a single model in the native shape', function () {
 
     $name = firstModelMatching(
         $client,
-        ['NeuML/gliner-bert-tiny', 'urchade/gliner_multi-v2.1'],
+        ['fastino/GLiNER2.5-Decide', 'NeuML/gliner-bert-tiny', 'urchade/gliner_multi-v2.1'],
         static fn (ModelInfo $m): bool => in_array('text', $m->inputs ?? [], true) && in_array('json', $m->outputs ?? [], true),
     );
 
@@ -35,5 +35,5 @@ it('lists models', function () {
 
     $names = array_map(static fn (ModelInfo $m): string => $m->name, $models);
 
-    expect($names)->toContain('BAAI/bge-m3');
+    expect($names)->toContain(embeddingModel());
 });

@@ -18,7 +18,7 @@ it('reads cluster capacity from /health', function () {
 it('attaches the gateway request id to a real encode result', function () {
     // Proves case-insensitive header lookup against the real wire: the gateway
     // sends `x-sie-request-id` lowercased over HTTP/1.1.
-    $result = sieClient()->encode('BAAI/bge-m3', ['text' => 'metadata probe']);
+    $result = sieClient()->encode(embeddingModel(), ['text' => 'metadata probe'], outputTypes: ['multivector']);
 
     expect($result->request)->not->toBeNull()
         ->and($result->request->id)->toBeString()

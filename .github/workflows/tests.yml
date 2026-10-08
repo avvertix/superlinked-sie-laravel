@@ -31,16 +31,6 @@ jobs:
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
-    services:
-      sie:
-        image: ghcr.io/superlinked/sie-server:v0.7.1-cpu-default
-        env:
-          SIE_DEVICE: cpu
-          SIE_MAX_BATCH_REQUESTS: 128
-          SIE_PRELOAD_MODELS: docling,urchade/gliner_multi-v2.1,docling:ocr,NeuML/gliner-bert-tiny,BAAI/bge-m3
-        ports:
-          - 8080:8080
-
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,12 +63,54 @@ jobs:
 
       - name: Test Suite
         if: runner.os != 'Windows'
-        env:
-          SIE_ENDPOINT: http://sie:8080
         run: composer test:unit
 
       - name: Test Suite (Windows)
         if: runner.os == 'Windows'
-        env:
-          SIE_ENDPOINT: http://sie:8080
         run: vendor/bin/pest
+
+  integration:
+    # Service containers only work on Linux runners, so the live SIE suite
+    # runs in its own job instead of the OS matrix above.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    name: Integration - P8.4 - L13.* - prefer-stable
+
+    services:
+      sie:
+        image: ghcr.io/superlinked/sie-server:v0.9.0-cpu-transformers5
+        env:
+          SIE_DEVICE: cpu
+          SIE_MAX_BATCH_REQUESTS: 128
+          SIE_PRELOAD_MODELS: fastino/GLiNER2.5-Decide
+        ports:
+          - 8080:8080
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite, pdo_sqlite, bcmath, intl
+          ini-values: error_reporting=E_ALL
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:13.*" "orchestra/testbench:11.*" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction --no-progress --no-scripts
+          composer run prepare
+
+      - name: Wait for SIE
+        run: timeout 600 bash -c 'until curl -fsS http://localhost:8080/healthz; do sleep 5; done'
+
+      - name: Integration Test Suite
+        env:
+          SIE_ENDPOINT: http://localhost:8080
+        run: vendor/bin/pest .\tests\Feature\Integration\ClassificationTest.php
+        # run: vendor/bin/pest --ci --testsuite=Integration

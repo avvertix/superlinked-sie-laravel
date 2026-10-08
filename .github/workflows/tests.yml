@@ -112,5 +112,5 @@ jobs:
       - name: Integration Test Suite
         env:
           SIE_ENDPOINT: http://localhost:8080
-        run: vendor/bin/pest .\tests\Feature\Integration\ClassificationTest.php
+        run: vendor/bin/pest ./tests/Feature/Integration/ClassificationTest.php
         # run: vendor/bin/pest --ci --testsuite=Integration

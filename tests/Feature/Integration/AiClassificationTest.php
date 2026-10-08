@@ -16,8 +16,6 @@ use Sie\Tests\Client\Support\Env;
 /**
  * The laravel/ai classification entry points, answered by a real SIE cluster.
  *
- * Written ahead of the gateway: until SieProvider implements
- * ClassificationProvider these are expected to fail against a live cluster.
  * They are skipped without SIE_ENDPOINT, like the rest of the live suite.
  */
 beforeEach(function () {

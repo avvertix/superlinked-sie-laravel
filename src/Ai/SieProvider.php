@@ -76,6 +76,15 @@ class SieProvider extends Provider implements ClassificationProvider, EmbeddingP
         return $model;
     }
 
+    /**
+     * Text files only: the decision models read text, so the gateway reads an
+     * attachment's content into the record and refuses images.
+     */
+    public function supportsClassificationAttachments(): bool
+    {
+        return true;
+    }
+
     public function classificationGateway(): ClassificationGateway
     {
         return $this->classificationGateway ??= new SieGateway;

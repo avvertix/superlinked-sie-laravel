@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Sie\Ai;
 
+use finfo;
+use Illuminate\Http\UploadedFile;
 use InvalidArgumentException;
 use Laravel\Ai\Classification\Boolean;
 use Laravel\Ai\Classification\Choice;
 use Laravel\Ai\Classification\Score;
+use Laravel\Ai\Contracts\Files\StorableFile;
 use Laravel\Ai\Contracts\Gateway\ClassificationGateway;
 use Laravel\Ai\Contracts\Gateway\EmbeddingGateway;
 use Laravel\Ai\Contracts\Gateway\RerankingGateway;
@@ -15,6 +18,8 @@ use Laravel\Ai\Contracts\Providers\ClassificationProvider;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Laravel\Ai\Contracts\Providers\RerankingProvider;
 use Laravel\Ai\Contracts\Question;
+use Laravel\Ai\Files\Document;
+use Laravel\Ai\Files\File;
 use Laravel\Ai\Responses\ClassificationResponse;
 use Laravel\Ai\Responses\Data\Answer;
 use Laravel\Ai\Responses\Data\BooleanAnswer;
@@ -142,6 +147,7 @@ class SieGateway implements ClassificationGateway, EmbeddingGateway, RerankingGa
      * @param  string|array<string, mixed>  $state
      * @param  array<string, Question>  $questions
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, File|UploadedFile>  $attachments  Text files only; their content is read into the text the questions are asked about.
      */
     public function classify(
         ClassificationProvider $provider,
@@ -150,6 +156,7 @@ class SieGateway implements ClassificationGateway, EmbeddingGateway, RerankingGa
         array $questions,
         int $timeout = 30,
         array $providerOptions = [],
+        array $attachments = [],
     ): ClassificationResponse {
         $schema = [];
 
@@ -157,12 +164,9 @@ class SieGateway implements ClassificationGateway, EmbeddingGateway, RerankingGa
             $schema[$key] = $this->wireQuestion($question);
         }
 
-        // A structured state has no wire shape of its own, so it is sent as JSON text.
-        $text = is_string($state) ? $state : json_encode($state, JSON_THROW_ON_ERROR);
-
         $result = $this->request($provider, $model, $providerOptions)
             ->schema($schema)
-            ->extract($text)
+            ->extract($this->mapInput($state, $attachments))
             ->throwIfAnyFailed()
             ->sole();
 
@@ -183,6 +187,60 @@ class SieGateway implements ClassificationGateway, EmbeddingGateway, RerankingGa
             // Like embeddings, the extract envelope reports no token usage.
             new TextUsage,
             new Meta(provider: $provider->name(), model: $model),
+        );
+    }
+
+    /**
+     * A decision model reads one text per record, so the state and every
+     * attachment are joined into it.
+     *
+     * @param  string|array<string, mixed>  $state
+     * @param  array<int, File|UploadedFile>  $attachments
+     */
+    private function mapInput(string|array $state, array $attachments): string
+    {
+        // A structured state has no wire shape of its own, so it is sent as JSON text.
+        $text = is_string($state) ? $state : json_encode($state, JSON_THROW_ON_ERROR);
+
+        foreach (array_values($attachments) as $attachment) {
+            $text .= "\n\n".$this->attachmentText($attachment);
+        }
+
+        return $text;
+    }
+
+    /**
+     * @throws InvalidArgumentException if the attachment is not a text file with inline content.
+     */
+    private function attachmentText(File|UploadedFile $attachment): string
+    {
+        if ($attachment instanceof UploadedFile) {
+            $attachment = Document::fromUpload($attachment);
+        }
+
+        if (! $attachment instanceof StorableFile) {
+            throw new InvalidArgumentException('SIE classification only accepts attachments with inline content; ['.get_debug_type($attachment).'] given.');
+        }
+
+        $content = $attachment->content();
+        $mime = $attachment->mimeType() ?? (new finfo(FILEINFO_MIME_TYPE))->buffer($content);
+
+        if (! $this->isText($mime) || ! mb_check_encoding($content, 'UTF-8')) {
+            throw new InvalidArgumentException("SIE classification only accepts text attachments; [{$mime}] given.");
+        }
+
+        $name = $attachment->name();
+
+        return $name !== null ? "{$name}:\n{$content}" : $content;
+    }
+
+    private function isText(string|false $mime): bool
+    {
+        return is_string($mime) && (
+            str_starts_with($mime, 'text/')
+            || in_array($mime, ['application/json', 'application/xml', 'application/yaml', 'application/x-yaml'], true)
+            || str_ends_with($mime, '+json')
+            || str_ends_with($mime, '+xml')
         );
     }
 

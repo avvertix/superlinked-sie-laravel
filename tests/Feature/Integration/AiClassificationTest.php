@@ -10,6 +10,7 @@ use Laravel\Ai\Classification\Boolean;
 use Laravel\Ai\Classification\Choice;
 use Laravel\Ai\Classification\Score;
 use Laravel\Ai\Contracts\Providers\ClassificationProvider;
+use Laravel\Ai\Files\Document;
 use Laravel\Ai\Responses\ClassificationResponse;
 use Sie\Tests\Client\Support\Env;
 
@@ -104,4 +105,19 @@ it('picks an item from a collection with Collection::decide', function () {
 
     expect($teams->decide('Which team handles this?', 'My invoice is wrong', provider: 'sie'))
         ->toBe('billing');
+});
+
+it('classifies the content of a text attachment', function () {
+    $email = Document::fromString("Subject: Charged twice\n\nI see two charges for invoice 1042. Please refund one.", 'text/plain')
+        ->as('email.txt');
+
+    $response = Classification::of('Support request attached.', [$email])
+        ->question('department', new Choice('Which team should handle this request?', [
+            'billing' => 'Payments, invoices, and refunds',
+            'technical' => 'Bugs, outages, and integrations',
+            'sales' => 'Pricing, plans, and upgrades',
+        ]))
+        ->classify('sie');
+
+    expect($response->answer('department')->choice)->toBe('billing');
 });

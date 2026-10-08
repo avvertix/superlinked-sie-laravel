@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Laravel\Ai\AiManager;
@@ -13,6 +14,7 @@ use Laravel\Ai\Contracts\Providers\ClassificationProvider;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Laravel\Ai\Contracts\Providers\RerankingProvider;
 use Laravel\Ai\Embeddings;
+use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Laravel\Ai\Reranking;
 use Laravel\Ai\Responses\ClassificationResponse;
@@ -299,3 +301,80 @@ it('surfaces an extraction failure instead of returning empty answers', function
 
     sieProvider()->classify('Hello', ['urgent' => new Boolean('Urgent?')]);
 })->throws(ExtractionFailedException::class, 'model crashed');
+
+it('reads text attachments into the record the questions are asked about', function () {
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['urgent' => ['type' => 'noul', 'noul' => 0.5]])]);
+
+    sieProvider()->classify(
+        'Customer email:',
+        ['urgent' => new Boolean('Urgent?')],
+        attachments: [
+            Document::fromString("Please refund me today.\n", 'text/plain')->as('email.txt'),
+            Document::fromString('{"order": 1042}', 'application/json'),
+        ],
+    );
+
+    SIE::assertExtracted('fastino/GLiNER2.5-Decide', function (array $body): bool {
+        expect($body['items'][0]['text'])->toBe(
+            "Customer email:\n\nemail.txt:\nPlease refund me today.\n\n\n{\"order\": 1042}",
+        );
+
+        return true;
+    });
+});
+
+it('reads an uploaded text file as an attachment', function () {
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['urgent' => ['type' => 'noul', 'noul' => 0.5]])]);
+
+    $upload = UploadedFile::fake()->createWithContent('notes.md', '# Refund request', 'text/markdown');
+
+    sieProvider()->classify('Triage:', ['urgent' => new Boolean('Urgent?')], attachments: [$upload]);
+
+    SIE::assertExtracted('fastino/GLiNER2.5-Decide', function (array $body): bool {
+        expect($body['items'][0]['text'])->toContain('# Refund request');
+
+        return true;
+    });
+});
+
+it('refuses attachments that are not text', function () {
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['urgent' => ['type' => 'noul', 'noul' => 0.5]])]);
+
+    sieProvider()->classify(
+        'Triage:',
+        ['urgent' => new Boolean('Urgent?')],
+        attachments: [Image::fromBase64(base64_encode('not really a png'), 'image/png')],
+    );
+})->throws(InvalidArgumentException::class, 'only accepts text attachments; [image/png] given');
+
+it('refuses a text attachment that is not valid UTF-8', function () {
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['urgent' => ['type' => 'noul', 'noul' => 0.5]])]);
+
+    sieProvider()->classify(
+        'Triage:',
+        ['urgent' => new Boolean('Urgent?')],
+        attachments: [Document::fromString("\xff\xfe\x00", 'text/plain')],
+    );
+})->throws(InvalidArgumentException::class, 'only accepts text attachments');
+
+it('refuses an attachment whose content is not held inline', function () {
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['urgent' => ['type' => 'noul', 'noul' => 0.5]])]);
+
+    sieProvider()->classify(
+        'Triage:',
+        ['urgent' => new Boolean('Urgent?')],
+        attachments: [Document::fromId('file_123')],
+    );
+})->throws(InvalidArgumentException::class, 'only accepts attachments with inline content');
+
+it('classifies a text attachment through the Classification entry point', function () {
+    Config::set('ai.providers.sie', ['driver' => 'sie', 'key' => null, 'name' => 'sie']);
+    SIE::fake(['fastino/GLiNER2.5-Decide' => decideFake(['decision' => ['type' => 'noul', 'noul' => 0.97]])]);
+
+    $response = Classification::of('Is this spam?', [Document::fromString('WIN a FREE cruise', 'text/plain')])
+        ->question('decision', new Boolean('Is the attached message spam?'))
+        ->classify('sie');
+
+    expect($response->answer('decision')->isTrue())->toBeTrue();
+    SIE::assertExtracted('fastino/GLiNER2.5-Decide', fn (array $body): bool => str_contains($body['items'][0]['text'], 'WIN a FREE cruise'));
+});

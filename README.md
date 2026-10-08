@@ -506,7 +506,7 @@ $response->answer('frustration')->score;
 | `Choice` | `choice` | `ChoiceAnswer`, the winning option plus a probability per option |
 | `Score` | `score` | `ScoreAnswer`, the expected level plus a probability per level |
 
-The model defaults to `fastino/GLiNER2.5-Decide`; change it with `SIE_AI_CLASSIFICATION_MODEL`. An array passed as the state is sent as JSON text. Token usage is not reported, so `usage` is always empty. Every question needs instructions, and the cluster must serve a decision model. Label-group classifiers such as GLiClass stay on the native `SIE::` surface.
+The model defaults to `fastino/GLiNER2.5-Decide`; change it with `SIE_AI_CLASSIFICATION_MODEL`. An array passed as the state is sent as JSON text. Text attachments (`Classification::of($state, [Document::fromPath('email.txt')])`, or an uploaded `text/*`, JSON, XML or YAML file) are read into the same text, each under its file name; images and files without inline content throw an `InvalidArgumentException`, because the decision models read text only. Token usage is not reported, so `usage` is always empty. Every question needs instructions, and the cluster must serve a decision model. Label-group classifiers such as GLiClass stay on the native `SIE::` surface.
 
 ## Accessing the underlying client
 

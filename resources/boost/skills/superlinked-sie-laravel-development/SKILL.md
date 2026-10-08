@@ -159,6 +159,12 @@ SIE_AI_EMBEDDINGS_DIMENSIONS=1024
 Dimensions are required and never guessed: a wrong width surfaces days later as
 poor recall rather than as an error.
 
+The same provider answers `Classification::of(...)->questions([...])->classify('sie')`
+and `Str::of(...)->decide(..., provider: 'sie')` with `Boolean`, `Choice` and
+`Score` questions, one `extract` call per record, using a decision model such as
+`fastino/GLiNER2.5-Decide` (`SIE_AI_CLASSIFICATION_MODEL`). Every question needs
+instructions; usage is not reported.
+
 ## Rules, References, and Templates
 
 Read before executing:

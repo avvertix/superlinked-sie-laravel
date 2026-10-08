@@ -472,6 +472,42 @@ Laravel AI embeddings support only one vector representation. If you care about 
 
 Dimensions are never guessed — a wrong width does not error, it silently mismatches your vector column and surfaces later as poor recall. Configure them explicitly, or the bridge throws.
 
+### Classification
+
+SIE also answers `laravel/ai`'s typed questions, backed by a decision model such as `fastino/GLiNER2.5-Decide`. All questions about one record go out in a single `extract` call, and every answer carries a probability you can branch on:
+
+```php
+use Laravel\Ai\Classification;
+use Laravel\Ai\Classification\Boolean;
+use Laravel\Ai\Classification\Choice;
+use Laravel\Ai\Classification\Score;
+
+$response = Classification::of($supportRequest)
+    ->questions([
+        'urgent' => new Boolean('Does this request need an immediate response?'),
+        'department' => new Choice('Which team should handle this request?', [
+            'billing' => 'Payments, invoices, and refunds',
+            'technical' => 'Bugs, outages, and integrations',
+        ]),
+        'frustration' => new Score('How frustrated is the customer?', ['Calm', 'Frustrated', 'Very angry']),
+    ])
+    ->classify('sie');
+
+$response->answer('urgent')->isTrue(0.9);
+$response->answer('department')->choice;
+$response->answer('frustration')->score;
+```
+
+`Str::of($message)->decide('Is this spam?', provider: 'sie')` works the same way. Set `default_for_classification` to `sie` in `config/ai.php` to drop the provider argument.
+
+| `laravel/ai` question | SIE type | Answer |
+|---|---|---|
+| `Boolean` | `noul` | `BooleanAnswer`, the probability of "true" |
+| `Choice` | `choice` | `ChoiceAnswer`, the winning option plus a probability per option |
+| `Score` | `score` | `ScoreAnswer`, the expected level plus a probability per level |
+
+The model defaults to `fastino/GLiNER2.5-Decide`; change it with `SIE_AI_CLASSIFICATION_MODEL`. An array passed as the state is sent as JSON text. Text attachments (`Classification::of($state, [Document::fromPath('email.txt')])`, or an uploaded `text/*`, JSON, XML or YAML file) are read into the same text, each under its file name; images and files without inline content throw an `InvalidArgumentException`, because the decision models read text only. Token usage is not reported, so `usage` is always empty. Every question needs instructions, and the cluster must serve a decision model. Label-group classifiers such as GLiClass stay on the native `SIE::` surface.
+
 ## Accessing the underlying client
 
 For anything this package does not model — OpenAI-compatible chat completions, for instance:

@@ -28,7 +28,7 @@
     "require-dev": {
         "larastan/larastan": "^3.9",
         "laravel/agent-detector": "^2.0",
-        "laravel/ai": "^0.11.2",
+        "laravel/ai": "^1.2.0",
         "laravel/chisel": "^0.1",
         "laravel/pao": "^1.0",
         "laravel/pint": "^1.29",
@@ -112,7 +112,7 @@
         }
     },
     "suggest": {
-        "laravel/ai": "Generate embeddings and rerank through Laravel's AI provider abstraction (^0.10.3)."
+        "laravel/ai": "Generate embeddings, rerank and classify through Laravel's AI provider abstraction (^1.2)."
     },
     "minimum-stability": "stable",
     "prefer-stable": true

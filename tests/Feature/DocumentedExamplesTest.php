@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Str;
+use Laravel\Ai\Classification;
+use Laravel\Ai\Classification\Boolean;
+use Laravel\Ai\Classification\Choice;
+use Laravel\Ai\Classification\Score;
 use Saloon\Http\Faking\MockClient;
 use Sie\Exceptions\ExtractionFailedException;
 use Sie\Facades\SIE;
@@ -65,4 +71,43 @@ it('runs the mixed-success example the README and Boost skill document', functio
     expect($seen)->toBe(1);
 
     expect(fn () => $results->throwIfAnyFailed())->toThrow(ExtractionFailedException::class);
+});
+
+it('runs the classification example the README and Boost skill document', function () {
+    if (! class_exists(Classification::class)) {
+        test()->markTestSkipped('laravel/ai classification is not available.');
+    }
+
+    Config::set('ai.providers.sie', ['driver' => 'sie', 'key' => null, 'name' => 'sie']);
+
+    SIE::fake(['fastino/GLiNER2.5-Decide' => FakeModel::extracting(fn (array $item): array => ['data' => [
+        'urgent' => ['type' => 'noul', 'noul' => 0.95, 'answer' => true],
+        'department' => ['type' => 'choice', 'choice' => 'billing', 'probabilities' => ['billing' => 0.9, 'technical' => 0.1]],
+        'frustration' => ['type' => 'score', 'score' => 1.4, 'legend' => ['Calm', 'Frustrated', 'Very angry'], 'probabilities' => [0.1, 0.4, 0.5]],
+        'decision' => ['type' => 'noul', 'noul' => 0.95, 'answer' => true],
+    ]])]);
+
+    $supportRequest = 'I was charged twice and nobody answers my emails!';
+
+    $response = Classification::of($supportRequest)
+        ->questions([
+            'urgent' => new Boolean('Does this request need an immediate response?'),
+            'department' => new Choice('Which team should handle this request?', [
+                'billing' => 'Payments, invoices, and refunds',
+                'technical' => 'Bugs, outages, and integrations',
+            ]),
+            'frustration' => new Score('How frustrated is the customer?', ['Calm', 'Frustrated', 'Very angry']),
+        ])
+        ->classify('sie');
+
+    expect($response->answer('urgent')->isTrue(0.9))->toBeTrue();
+    expect($response->answer('department')->choice)->toBe('billing');
+    expect($response->answer('frustration')->score)->toBe(1.4);
+
+    expect(Str::of('WIN a FREE cruise')->decide('Is this spam?', provider: 'sie'))->toBeTrue();
+
+    // "Set default_for_classification to sie to drop the provider argument."
+    Config::set('ai.default_for_classification', 'sie');
+
+    expect(Str::of('WIN a FREE cruise')->decide('Is this spam?'))->toBeTrue();
 });

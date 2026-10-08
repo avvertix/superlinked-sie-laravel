@@ -57,7 +57,7 @@ function firstModelMatching(SieClient $client, array $candidates, ?callable $pre
         try {
             $model = $client->getModel($candidate);
 
-            if ($model->loaded === true && ($predicate === null || $predicate($model))) {
+            if ($predicate === null || $predicate($model)) {
                 return $candidate;
             }
         } catch (Throwable) {

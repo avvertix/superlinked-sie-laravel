@@ -17,7 +17,7 @@ use Sie\Testing\FakeModel;
 afterEach(fn () => MockClient::destroyGlobal());
 
 /*
- * The examples in README.md and in the bundled Boost skills, run against the
+ * The examples in README.md, docs/ and the bundled Boost skills, run against the
  * package. Documentation drifts silently otherwise: the streaming example
  * printed $chunk->text for two releases, a property GenerateChunk never had.
  */

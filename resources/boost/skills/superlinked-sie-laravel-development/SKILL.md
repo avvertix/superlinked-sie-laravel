@@ -169,7 +169,7 @@ instructions; usage is not reported.
 
 Read before executing:
 
-- `vendor/avvertix/superlinked-sie-laravel/README.md` — the full public API
+- `vendor/avvertix/superlinked-sie-laravel/docs/README.md` — index of the guides covering the full public API
 - `vendor/avvertix/superlinked-sie-laravel/CONTEXT.md` — the vocabulary to reuse in app code
 - `vendor/avvertix/superlinked-sie-laravel/config/superlinked-sie-laravel.php` — every config key with its rationale
 

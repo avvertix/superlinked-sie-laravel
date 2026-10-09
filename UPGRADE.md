@@ -183,5 +183,6 @@ holds it — resolve it after faking.
 Several things that previously needed a hand-rolled Saloon mock are now part of
 the double: extraction `data` and per-item `error` via `FakeModel::extracting()`,
 failures via `FakeModel::failing()`, captured cluster responses via
-`FakeModel::recording()`, and `SIE::assertChatted()`. See the Testing section of
-the README, or ask your agent for the `superlinked-sie-laravel-upgrade` skill.
+`FakeModel::recording()`, and `SIE::assertChatted()`. See
+[docs/testing.md](docs/testing.md), or ask your agent for the
+`superlinked-sie-laravel-upgrade` skill.

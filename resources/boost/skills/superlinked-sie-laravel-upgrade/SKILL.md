@@ -124,7 +124,7 @@ missing answer.
 Read before executing:
 
 - `vendor/avvertix/superlinked-sie-laravel/UPGRADE.md` — every breaking change
-- the Testing section of `vendor/avvertix/superlinked-sie-laravel/README.md` — the full double surface
+- `vendor/avvertix/superlinked-sie-laravel/docs/testing.md` — the full double surface
 
 ## Examples
 
